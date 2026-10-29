@@ -8,3 +8,6 @@ dist/
 
 # Supabase CLI local state (contains local dev secrets)
 supabase/.temp/
+
+# Cloudflare wrangler local state
+.wrangler/
