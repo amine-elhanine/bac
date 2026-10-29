@@ -46,3 +46,10 @@ export const pointsViewers = ['president', 'vice_president', 'hr', 'vice_hr']
 
 /** Database validation error raised when an officer role is already held. */
 export const UNIQUE_VIOLATION = '23505'
+
+/** Officer role → the team whose tasks and materials they own. */
+export const TEAM_FOR_ROLE: Record<string, string> = {
+  communications_officer: 'communications', treasurer: 'treasury', vice_treasurer: 'treasury',
+  hr: 'hr', vice_hr: 'hr', general_secretary: 'secretariat',
+  logistics_officer: 'logistics', vice_logistics_officer: 'logistics',
+}

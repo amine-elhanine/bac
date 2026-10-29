@@ -18,6 +18,9 @@ verify_jwt = true
 [functions.reset-member-password]
 verify_jwt = true
 
+[functions.delete-member]
+verify_jwt = true
+
 # Local dev auth: redirect invited members and password resets to the Vite dev server.
 [auth]
 site_url = "http://localhost:5173"

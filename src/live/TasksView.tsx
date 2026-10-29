@@ -1,19 +1,43 @@
 import { useState, type FormEvent } from 'react'
-import { Check, Plus } from 'lucide-react'
+import { Check, Plus, Trash2 } from 'lucide-react'
 import type { Identity } from '../AuthGate'
 import { useI18n } from '../i18n'
 import { supabase } from '../lib/supabase'
+import { TEAM_FOR_ROLE } from '../lib/roles'
 import { clubDateTime, clubInputToIso } from './datetime'
-import { EmptyState, Modal } from './ui'
+import { ConfirmDialog, EmptyState, Modal } from './ui'
 import type { ClubTask, Profile } from './types'
 
-export function TasksLive({ rows, identity, canManage, onCreate, onStatusChange }: { rows: ClubTask[]; identity: Identity; canManage: boolean; onCreate: () => void; onStatusChange: (taskId: string, status: string) => void }) {
+export function TasksLive({ rows, identity, canManage, onCreate, onStatusChange, onDeleted }: { rows: ClubTask[]; identity: Identity; canManage: boolean; onCreate: () => void; onStatusChange: (taskId: string, status: string) => void; onDeleted: () => void | Promise<void> }) {
   const { t } = useI18n()
+  const [taskToDelete, setTaskToDelete] = useState<ClubTask | null>(null)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
   const statusFor = (task: ClubTask) => canManage ? task.status : task.task_assignments.find((assignment) => assignment.member_id === identity.id)?.status ?? task.status
   const visibleRows = rows.filter((task) => canManage || statusFor(task) !== 'cancelled')
   const active = visibleRows.filter((task) => !['done', 'cancelled'].includes(statusFor(task))).length
   const completed = visibleRows.filter((task) => statusFor(task) === 'done').length
-  return <section className="live-panel"><div className="live-panel-head"><div><h2>{canManage ? t('Club tasks') : t('My assigned tasks')}</h2><p>{canManage ? t('Work assigned across BAC teams. Member progress is tracked separately.') : t('Your progress is tracked separately for each assigned task.')}</p></div>{canManage && <button className="button button-primary" onClick={onCreate}><Plus size={14} /> {t('Assign task')}</button>}</div><div className="task-summary"><div className="task-summary-card"><span>{t('OPEN TASKS')}</span><strong>{active}</strong></div><div className="task-summary-card"><span>{t('COMPLETED')}</span><strong>{completed}</strong></div><div className="task-summary-card"><span>{t('ASSIGNED TO YOU')}</span><strong>{visibleRows.filter((task) => task.task_assignments?.some((assignment) => assignment.member_id === identity.id)).length}</strong></div></div>{visibleRows.length ? <div className="live-task-list">{visibleRows.map((task) => { const status = statusFor(task); const doneAssignees = task.task_assignments.filter((assignment) => assignment.status === 'done').length; return <article className="live-task-row" key={task.id}><div className={`live-task-status status-${status}`}><Check size={15} /></div><div className="live-task-copy"><strong>{task.title}</strong><p>{task.description || t('No details added.')}</p><small>{task.team ? `${t(task.team.replace('_', ' '))} ${t('team')} · ` : ''}{canManage ? `${t('{done}/{total} completed', { done: doneAssignees, total: task.task_assignments?.length ?? 0 })} · ` : ''}{t('{count} assignee(s)', { count: task.task_assignments?.length ?? 0 })}{task.due_at ? ` · ${t('Due {date}', { date: clubDateTime(task.due_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })}` : ''}</small></div><span className={`task-priority priority-${task.priority}`}>{t(task.priority)}</span><select className="task-status-select" aria-label={`${t('Update status for')} ${task.title}`} value={status} onChange={(event) => onStatusChange(task.id, event.target.value)}>{(canManage ? ['todo', 'in_progress', 'blocked', 'done', 'cancelled'] : ['todo', 'in_progress', 'blocked', 'done']).map((value) => <option key={value} value={value}>{t(value.replace('_', ' '))}</option>)}</select></article> })}</div> : <EmptyState title={t('No tasks yet')} detail={canManage ? t('Assign a task to a member to coordinate the next club activity.') : t('When an officer assigns work to you, it will appear here.')} />}</section>
+  // Leadership, the responsible team's officer, or the task's creator may
+  // manage it; the database enforces the same rule for every action.
+  const canManageRow = (task: ClubTask) =>
+    ['president', 'vice_president'].includes(identity.role)
+    || task.created_by === identity.id
+    || (Boolean(task.team) && TEAM_FOR_ROLE[identity.role] === task.team)
+  async function confirmDelete() {
+    if (!supabase || !taskToDelete || deleting) return
+    setDeleting(true); setDeleteError('')
+    const { error: deleteError } = await supabase.rpc('delete_task', { p_task_id: taskToDelete.id })
+    if (deleteError) { setDeleteError(deleteError.message); setDeleting(false); return }
+    setDeleting(false); setTaskToDelete(null); await onDeleted()
+  }
+  return <><section className="live-panel"><div className="live-panel-head"><div><h2>{canManage ? t('Club tasks') : t('My assigned tasks')}</h2><p>{canManage ? t('Work assigned across BAC teams. Member progress is tracked separately.') : t('Your progress is tracked separately for each assigned task.')}</p></div>{canManage && <button className="button button-primary" onClick={onCreate}><Plus size={14} /> {t('Assign task')}</button>}</div><div className="task-summary"><div className="task-summary-card"><span>{t('OPEN TASKS')}</span><strong>{active}</strong></div><div className="task-summary-card"><span>{t('COMPLETED')}</span><strong>{completed}</strong></div><div className="task-summary-card"><span>{t('ASSIGNED TO YOU')}</span><strong>{visibleRows.filter((task) => task.task_assignments?.some((assignment) => assignment.member_id === identity.id)).length}</strong></div></div>{visibleRows.length ? <div className="live-task-list">{visibleRows.map((task) => { const status = statusFor(task); const doneAssignees = task.task_assignments.filter((assignment) => assignment.status === 'done').length; const manageable = canManage && canManageRow(task); return <article className="live-task-row" key={task.id}><div className={`live-task-status status-${status}`}><Check size={15} /></div><div className="live-task-copy"><strong>{task.title}</strong><p>{task.description || t('No details added.')}</p><small>{task.team ? `${t(task.team.replace('_', ' '))} ${t('team')} · ` : ''}{canManage ? `${t('{done}/{total} completed', { done: doneAssignees, total: task.task_assignments?.length ?? 0 })} · ` : ''}{t('{count} assignee(s)', { count: task.task_assignments?.length ?? 0 })}{task.due_at ? ` · ${t('Due {date}', { date: clubDateTime(task.due_at, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) })}` : ''}</small></div><span className={`task-priority priority-${task.priority}`}>{t(task.priority)}</span>{manageable && <select className="task-status-select" aria-label={`${t('Update status for')} ${task.title}`} value={status} onChange={(event) => onStatusChange(task.id, event.target.value)}>{['todo', 'in_progress', 'blocked', 'done', 'cancelled'].map((value) => <option key={value} value={value}>{t(value.replace('_', ' '))}</option>)}</select>}{!canManage && task.task_assignments.some((assignment) => assignment.member_id === identity.id) && <select className="task-status-select" aria-label={`${t('Update status for')} ${task.title}`} value={status} onChange={(event) => onStatusChange(task.id, event.target.value)}>{['todo', 'in_progress', 'blocked', 'done'].map((value) => <option key={value} value={value}>{t(value.replace('_', ' '))}</option>)}</select>}{manageable && <button type="button" className="reverse-button" onClick={() => setTaskToDelete(task)} aria-label={`${t('Delete task')}: ${task.title}`}><Trash2 size={14} /></button>}</article> })}</div> : <EmptyState title={t('No tasks yet')} detail={canManage ? t('Assign a task to a member to coordinate the next club activity.') : t('When an officer assigns work to you, it will appear here.')} />}</section>{taskToDelete && <ConfirmDialog
+      title={t('Delete this task?')}
+      message={`${t('This permanently removes "{title}" and its assignments from every assignee. The deletion is audit logged.', { title: taskToDelete.title })}`}
+      confirmLabel={t('Delete task')}
+      busy={deleting}
+      onConfirm={() => void confirmDelete()}
+      onClose={() => { setTaskToDelete(null); setDeleteError('') }}
+    >{deleteError && <div className="auth-error" role="alert">{deleteError}</div>}</ConfirmDialog>}</>
 }
 
 export function TaskDialog({ profiles, role, onClose, onSaved }: { profiles: Profile[]; role: string; onClose: () => void; onSaved: () => void | Promise<void> }) {

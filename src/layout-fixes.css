@@ -71,3 +71,9 @@
 .live-profile .profile-open.active{background:var(--wash)}
 .live-profile .profile-open:hover strong{color:var(--green)}
 [dir="rtl"] .live-profile .profile-open{text-align:right}
+
+/* ─── Destructive action buttons ──────────────────────────────────────────── */
+.button-danger{background:#a03d31;border-color:#a03d31;color:#fff}
+.button-danger:hover{background:#8a332a;border-color:#8a332a}
+:root[data-theme="dark"] .button-danger{background:#7e3228;border-color:#8f4438}
+:root[data-theme="dark"] .button-danger:hover{background:#6c2a22}

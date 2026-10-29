@@ -39,7 +39,7 @@ export type PurchaseRequest = {
 export type InventoryMovement = { id: string; item_id: string; member_id: string | null; event_id: string | null; quantity: number; movement_type: string; reason: string; created_by: string; created_at: string }
 export type ClubTask = {
   id: string; title: string; description: string; team: string | null; priority: string; status: string
-  due_at: string | null; task_assignments: { member_id: string; status: string }[]
+  due_at: string | null; created_by?: string; task_assignments: { member_id: string; status: string }[]
 }
 export type ClubNotification = { id: string; title: string; body: string; category: string; target_path: string | null; read_at: string | null; created_at: string }
 export type PointEntry = { id: string; member_id: string; event_id: string | null; points_delta: number; category: string; reason: string; created_by: string; created_at: string }

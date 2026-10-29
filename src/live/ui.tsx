@@ -10,3 +10,8 @@ export function Modal({ title, subtitle, children, onClose }: { title: string; s
 export function EmptyState({ title, detail }: { title: string; detail: string }) {
   return <div className="live-empty"><div className="live-empty-icon"><CalendarDays size={20} /></div><strong>{title}</strong><p>{detail}</p></div>
 }
+
+export function ConfirmDialog({ title, message, confirmLabel, busy, onConfirm, onClose, children }: { title: string; message: string; confirmLabel: string; busy: boolean; onConfirm: () => void; onClose: () => void; children?: ReactNode }) {
+  const { t } = useI18n()
+  return <Modal title={title} onClose={onClose}><p className="case-dialog-description">{message}</p>{children}<div className="modal-actions"><button type="button" className="button button-outline" onClick={onClose}>{t('Cancel')}</button><button type="button" className="button button-danger" onClick={onConfirm} disabled={busy}>{busy ? t('Deleting…') : confirmLabel}</button></div></Modal>
+}

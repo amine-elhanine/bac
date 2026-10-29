@@ -1,15 +1,48 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Plus, Search } from 'lucide-react'
+import { Plus, Search, Trash2 } from 'lucide-react'
 import { useI18n } from '../i18n'
 import { supabase } from '../lib/supabase'
 import { ELECTED_OFFICER_ROLES, ROLE_LABELS, UNIQUE_VIOLATION } from '../lib/roles'
 import { clubDateInput, clubDateOnly, clubDateTime, initials } from './datetime'
-import { EmptyState, Modal } from './ui'
+import { ConfirmDialog, EmptyState, Modal } from './ui'
 import type { Profile, ProfileHistory } from './types'
 
-export function MembersLive({ profiles, roles, search, setSearch, canManage, canManageRoles, onInvite, onStartNewTerm, onChangeStatus, onEdit, onManageRole, onResetPassword }: { profiles: Profile[]; roles: Record<string, string>; search: string; setSearch: (value: string) => void; canManage: boolean; canManageRoles: boolean; onInvite: () => void; onStartNewTerm: () => void; onChangeStatus: (member: Profile) => void; onEdit: (member: Profile) => void; onManageRole: (member: Profile) => void; onResetPassword: (member: Profile) => void }) {
+export function MembersLive({ profiles, roles, search, setSearch, canManage, canManageRoles, onInvite, onStartNewTerm, onChangeStatus, onEdit, onManageRole, onResetPassword, onDeleted }: { profiles: Profile[]; roles: Record<string, string>; search: string; setSearch: (value: string) => void; canManage: boolean; canManageRoles: boolean; onInvite: () => void; onStartNewTerm: () => void; onChangeStatus: (member: Profile) => void; onEdit: (member: Profile) => void; onManageRole: (member: Profile) => void; onResetPassword: (member: Profile) => void; onDeleted: () => void | Promise<void> }) {
   const { t } = useI18n()
-  return <section className="live-panel"><div className="live-panel-head"><div><h2>{t('Member directory')}</h2><p>{canManage ? t('Roster access follows your current club role. Member and role changes are reasoned and logged.') : t('Your member profile.')}</p></div><div className="live-panel-actions">{canManageRoles && <button className="button button-outline" onClick={onStartNewTerm}>{t('Start new term')}</button>}{canManage && <button className="button button-primary" onClick={onInvite}><Plus size={14} /> {t('Invite member')}</button>}<label className="live-search"><Search size={15} /><input placeholder={t('Search members')} value={search} onChange={(event) => setSearch(event.target.value)} /></label></div></div>{profiles.length ? <div className="table-scroll"><table><thead><tr><th>{t('MEMBER')}</th><th>{t('PROGRAM')}</th><th>{t('STATUS')}</th><th>{t('MEMBER CODE')}</th><th>{t('CLUB ROLE')}</th>{canManage && <th>{t('MEMBERSHIP')}</th>}</tr></thead><tbody>{profiles.map((person) => <tr key={person.id}><td><div className="member-cell"><div className="avatar avatar-mint">{initials(person.full_name)}</div><div><strong>{person.full_name}</strong><small>{person.email ?? t('No email on profile')}</small></div></div></td><td>{person.study_program ?? '—'}{person.cohort ? ` · ${person.cohort}` : ''}</td><td><span className={`status-pill ${person.status === 'active' ? 'status-active' : 'status-pending'}`}><i />{t(person.status)}</span></td><td>{person.member_code}</td><td>{t(ROLE_LABELS[roles[person.id] ?? 'member'] ?? 'Member')}</td>{canManage && <td><div className="member-actions"><button className="button button-outline member-status-button" onClick={() => onEdit(person)}>{t('Edit details')}</button><button className="button button-outline member-status-button" onClick={() => onChangeStatus(person)}>{t('Change status')}</button>{canManageRoles && <button className="button button-outline member-status-button" onClick={() => onManageRole(person)}>{t('Change role')}</button>}<button className="button button-outline member-status-button" onClick={() => onResetPassword(person)}>{t('Reset password')}</button></div></td>}</tr>)}</tbody></table></div> : <EmptyState title={t('No members found')} detail={t('The member list may be empty or restricted by your club role.')} />}</section>
+  const [memberToDelete, setMemberToDelete] = useState<Profile | null>(null)
+  const [deletionReason, setDeletionReason] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+  async function confirmDelete() {
+    if (!supabase || !memberToDelete || deleting) return
+    if (deletionReason.trim().length < 4) { setDeleteError(t('Add a short reason for this deletion.')); return }
+    setDeleting(true); setDeleteError('')
+    const { data, error: deleteError } = await supabase.functions.invoke('delete-member', { body: { member_id: memberToDelete.id, reason: deletionReason.trim() } })
+    if (deleteError || !data?.deleted) {
+      let detail = data?.error
+      if (!detail && deleteError?.context instanceof Response) {
+        const responseBody = await deleteError.context.clone().json().catch(() => null) as { error?: string } | null
+        if (responseBody?.error) detail = t(responseBody.error)
+      }
+      setDeleteError(detail ?? deleteError?.message ?? t('Member deletion could not be completed. Please try again.'))
+      setDeleting(false); return
+    }
+    setDeleting(false); setMemberToDelete(null); setDeletionReason(''); await onDeleted()
+  }
+  return <>
+    <section className="live-panel"><div className="live-panel-head"><div><h2>{t('Member directory')}</h2><p>{canManage ? t('Roster access follows your current club role. Member and role changes are reasoned and logged.') : t('Your member profile.')}</p></div><div className="live-panel-actions">{canManageRoles && <button className="button button-outline" onClick={onStartNewTerm}>{t('Start new term')}</button>}{canManage && <button className="button button-primary" onClick={onInvite}><Plus size={14} /> {t('Invite member')}</button>}<label className="live-search"><Search size={15} /><input placeholder={t('Search members')} value={search} onChange={(event) => setSearch(event.target.value)} /></label></div></div>{profiles.length ? <div className="table-scroll"><table><thead><tr><th>{t('MEMBER')}</th><th>{t('PROGRAM')}</th><th>{t('STATUS')}</th><th>{t('MEMBER CODE')}</th><th>{t('CLUB ROLE')}</th>{canManage && <th>{t('MEMBERSHIP')}</th>}</tr></thead><tbody>{profiles.map((person) => <tr key={person.id}><td><div className="member-cell"><div className="avatar avatar-mint">{initials(person.full_name)}</div><div><strong>{person.full_name}</strong><small>{person.email ?? t('No email on profile')}</small></div></div></td><td>{person.study_program ?? '—'}{person.cohort ? ` · ${person.cohort}` : ''}</td><td><span className={`status-pill ${person.status === 'active' ? 'status-active' : 'status-pending'}`}><i />{t(person.status)}</span></td><td>{person.member_code}</td><td>{t(ROLE_LABELS[roles[person.id] ?? 'member'] ?? 'Member')}</td>{canManage && <td><div className="member-actions"><button className="button button-outline member-status-button" onClick={() => onEdit(person)}>{t('Edit details')}</button><button className="button button-outline member-status-button" onClick={() => onChangeStatus(person)}>{t('Change status')}</button>{canManageRoles && <button className="button button-outline member-status-button" onClick={() => onManageRole(person)}>{t('Change role')}</button>}<button className="button button-outline member-status-button" onClick={() => onResetPassword(person)}>{t('Reset password')}</button><button type="button" className="reverse-button" onClick={() => { setMemberToDelete(person); setDeletionReason(''); setDeleteError('') }} aria-label={`${t('Delete member')}: ${person.full_name}`}><Trash2 size={14} /></button></div></td>}</tr>)}</tbody></table></div> : <EmptyState title={t('No members found')} detail={t('The member list may be empty or restricted by your club role.')} />}</section>
+    {memberToDelete && <ConfirmDialog
+      title={t('Delete this member?')}
+      message={`${t('This permanently removes the account and profile of {name} ({code}). Members with attendance, finance, or points history cannot be deleted; set their status to Former instead. The deletion is audit logged.', { name: memberToDelete.full_name, code: memberToDelete.member_code })}`}
+      confirmLabel={t('Delete member')}
+      busy={deleting}
+      onConfirm={() => void confirmDelete()}
+      onClose={() => { setMemberToDelete(null); setDeleteError('') }}
+    >
+      <label>{t('Reason for deletion')}<textarea required minLength={4} maxLength={500} rows={2} value={deletionReason} onChange={(change) => setDeletionReason(change.target.value)} placeholder={t('For example: duplicate account created by mistake')} /></label>
+      {deleteError && <div className="auth-error" role="alert">{deleteError}</div>}
+    </ConfirmDialog>}
+  </>
 }
 
 export function InviteMemberDialog({ onClose, onSaved }: { onClose: () => void; onSaved: (memberCode: string, email: string, temporaryPassword: string | null) => void | Promise<void> }) {
