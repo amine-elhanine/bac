@@ -1,0 +1,73 @@
+/* Layout fixes: notification popover alignment and the mobile navigation
+   drawer. Loaded last so these override the earlier responsive rules. */
+
+/* The bell sits at the viewport edge; align the popover to it instead of
+   overflowing past the screen. */
+.notification-popover{right:0}
+
+/* ─── Mobile navigation drawer ─────────────────────────────────────────────
+   Below 850px the sidebar becomes an off-canvas drawer opened by the top-bar
+   hamburger and closed by the scrim or by navigating. */
+@media (max-width: 850px){
+  .live-sidebar{
+    position:fixed;
+    inset:0 auto 0 0;
+    width:min(320px, 86vw);
+    transform:translateX(-102%);
+    transition:transform .22s ease;
+    z-index:40;
+    display:flex;
+    flex-direction:column;
+    padding:22px 15px 14px;
+    background:var(--paper);
+    border-right:1px solid var(--line);
+    overflow-y:auto;
+    box-shadow:none;
+  }
+  .live-sidebar.live-sidebar-open{transform:translateX(0);box-shadow:14px 0 40px #0b1c1240}
+  .live-sidebar>.brand-lockup{height:48px;margin-bottom:20px}
+  .live-sidebar .brand-mark{width:36px;height:36px}
+  .live-sidebar>.brand-lockup strong{font-size:19px}
+  .live-sidebar>.brand-lockup small{font-size:8px}
+  .live-sidebar .club-switch{display:flex;height:56px;margin:0 2px 20px}
+  .live-sidebar .club-name strong{font-size:11px}
+  .live-sidebar .club-name small{font-size:10px}
+  .live-sidebar .nav-caption{display:block;margin:0 0 8px 10px}
+  .live-sidebar nav{display:flex;flex-direction:column;gap:2px;margin:0;overflow:visible;padding-bottom:0}
+  .live-sidebar .nav-item{width:100%;min-width:0;height:40px;margin:2px 0;padding:0 11px;font-size:12px;gap:11px}
+  .live-sidebar .nav-item svg{width:17px;height:17px}
+  .live-sidebar .live-profile{display:flex;margin-top:auto;border-top:1px solid var(--line);padding:13px 3px 0}
+  .live-main{margin-left:0}
+  .mobile-menu{display:grid}
+  .scrim{display:block;position:fixed;inset:0;background:#0b1c1280;border:0;z-index:35}
+  [dir="rtl"] .live-sidebar{inset:0 0 0 auto;transform:translateX(102%);border-right:0;border-left:1px solid var(--line)}
+  [dir="rtl"] .live-sidebar.live-sidebar-open{transform:translateX(0)}
+}
+
+/* The top-bar gains room beside the hamburger on small screens. */
+@media (max-width: 850px){
+  .live-topbar{gap:10px}
+}
+
+/* ─── Profile entry to My account ─────────────────────────────────────────── */
+.live-profile .profile-open{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  flex:1;
+  min-width:0;
+  background:none;
+  border:0;
+  padding:4px 6px;
+  margin:-4px -6px;
+  border-radius:8px;
+  text-align:start;
+  cursor:pointer;
+  color:inherit;
+  font:inherit;
+}
+.live-profile .profile-open>div{min-width:0;flex:1}
+.live-profile .profile-open:hover{background:var(--wash)}
+.live-profile .profile-open.active{background:var(--wash)}
+.live-profile .profile-open:hover strong{color:var(--green)}
+[dir="rtl"] .live-profile .profile-open{text-align:right}
