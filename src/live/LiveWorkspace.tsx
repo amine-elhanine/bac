@@ -317,7 +317,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
           if (reviewError) throw reviewError
           setIdeaReviews((reviewRows ?? []) as MemberIdeaReview[])
         } else setIdeaReviews([])
-        const { data: threadRows, error: threadError } = await supabase.from('member_communication_threads').select('id,member_id,subject,status,closure_note,created_at,updated_at').order('updated_at', { ascending: false }).limit(100)
+        const { data: threadRows, error: threadError } = await supabase.from('member_communication_threads').select('id,member_id,subject,status,target_role,closure_note,created_at,updated_at').order('updated_at', { ascending: false }).limit(100)
         if (threadError) throw threadError
         const threadIds = (threadRows ?? []).map((thread) => thread.id)
         let messageRows: CommunicationMessage[] = []

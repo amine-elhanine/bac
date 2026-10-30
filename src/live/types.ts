@@ -28,7 +28,7 @@ export type MemberIdeaReview = { id: string; idea_id: string; previous_status: s
 export type CommunicationMessage = { id: string; thread_id: string; sender_id: string; sender_side: 'member' | 'club_team'; body: string; created_at: string }
 export type CommunicationThread = {
   id: string; member_id: string; subject: string; status: 'open' | 'awaiting_member' | 'closed'
-  closure_note: string | null; created_at: string; updated_at: string; messages: CommunicationMessage[]
+  target_role?: string | null; closure_note: string | null; created_at: string; updated_at: string; messages: CommunicationMessage[]
 }
 export type InventoryItem = { id: string; name: string; category: string; quantity: number; condition: string; storage_location: string | null }
 export type PurchaseRequest = {
