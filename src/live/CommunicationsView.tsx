@@ -99,7 +99,7 @@ function CommunicationChatPanel({ threads, profiles, canManage, onNew, onRefresh
   </section>
 }
 
-export function NewCommunicationDialog({ profiles, canManage, onClose, onSaved }: { profiles: Profile[]; canManage: boolean; onClose: () => void; onSaved: () => void | Promise<void> }) {
+export function NewCommunicationDialog({ userId, profiles, canManage, onClose, onSaved }: { userId: string; profiles: Profile[]; canManage: boolean; onClose: () => void; onSaved: () => void | Promise<void> }) {
   const { t } = useI18n()
   const [subject, setSubject] = useState(''); const [body, setBody] = useState(''); const [memberId, setMemberId] = useState(''); const [targetRole, setTargetRole] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
   async function submit(formEvent: FormEvent<HTMLFormElement>) {
@@ -112,7 +112,7 @@ export function NewCommunicationDialog({ profiles, canManage, onClose, onSaved }
     setBusy(false); await onSaved()
   }
   return <Modal title={t('New message')} subtitle={canManage ? t('Start a private conversation with an active member; they are notified immediately.') : t('Pick the board member you want to talk to — your conversation stays with that role even if the board changes. For a sensitive personal issue, you can also use HR Support.')} onClose={onClose}><form className="live-form" onSubmit={submit}>{canManage
-    ? <label>{t('Member')}<select required value={memberId} onChange={(change) => setMemberId(change.target.value)}><option value="">{t('Choose an active member')}</option>{profiles.filter((profile) => profile.status === 'active').map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name} · {profile.member_code}</option>)}</select></label>
+    ? <label>{t('Member')}<select required value={memberId} onChange={(change) => setMemberId(change.target.value)}><option value="">{t('Choose an active member')}</option>{profiles.filter((profile) => profile.status === 'active' && profile.id !== userId).map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name} · {profile.member_code}</option>)}</select></label>
     : <label>{t('Board member')}<select required value={targetRole} onChange={(change) => setTargetRole(change.target.value)}><option value="">{t('Choose the board member you want to talk to.')}</option>{ELECTED_OFFICER_ROLES.map((role) => <option key={role} value={role}>{t(ROLE_LABELS[role])}</option>)}</select><small>{t('Your conversation is with the current holder of this role and stays with the role at the next election.')}</small></label>}<label>{t('Subject')}<input required minLength={2} maxLength={140} value={subject} onChange={(event) => setSubject(event.target.value)} /></label><label>{t('Message')}<textarea required minLength={1} maxLength={4000} rows={6} value={body} onChange={(event) => setBody(event.target.value)} /></label>{error && <div className="auth-error" role="alert">{error}</div>}<div className="modal-actions"><button type="button" className="button button-outline" onClick={onClose}>{t('Cancel')}</button><button type="submit" className="button button-primary" disabled={busy}>{busy ? t('Sending…') : t('Send message')}</button></div></form></Modal>
 }
 
