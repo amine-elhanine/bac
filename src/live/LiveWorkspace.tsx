@@ -157,6 +157,11 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   const [scanBusy, setScanBusy] = useState(false)
   const [exportBusy, setExportBusy] = useState(false)
   const viewRefreshInFlight = useRef(false)
+  const viewLoadInFlight = useRef(0)
+  // Views that already have data on screen. Once a view is loaded, later
+  // refreshes (after a save, a realtime event, or a return visit) update it in
+  // place instead of unmounting it behind the blocking "Loading" screen.
+  const loadedViews = useRef<Set<LiveView>>(new Set())
 
   // Date, time, and money formatters follow the active interface language.
   useEffect(() => { setDateLocale(localeFor(language)) }, [language])
@@ -192,7 +197,11 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
 
   const loadViewData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
     if (!supabase) return
-    if (!silent) { setBusy(true); setError('') }
+    // Only the first visit to a view gets the blocking loading screen; every
+    // later refresh keeps the current screen (and its state) mounted.
+    const showSpinner = !silent && !loadedViews.current.has(view)
+    if (showSpinner) { setBusy(true); setError('') }
+    viewLoadInFlight.current += 1
     try {
       if (view === 'Overview' || view === 'Calendar' || view === 'Attendance' || view === 'Points' || view === 'Finance') await loadEvents()
       if (view === 'Overview') {
@@ -428,9 +437,10 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
           setProfiles((memberRows ?? []) as Profile[])
         }
       }
+      loadedViews.current.add(view)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('Could not load this workspace. Check your connection and access.'))
-    } finally { if (!silent) setBusy(false) }
+    } finally { viewLoadInFlight.current -= 1; if (showSpinner) setBusy(false) }
   }, [view, identity.role, identity.id, canHR, canViewFinance, canLogistics, canReviewIdeas, canManageCommunicationInbox, loadEvents, t])
 
   async function recordInventoryMovement(input: { itemId: string; movementType: string; quantity: number; memberId: string | null; eventId: string | null; reason: string }) {
@@ -445,7 +455,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   useEffect(() => { void loadViewData() }, [loadViewData])
 
   const silentRefresh = useCallback(() => {
-    if (document.visibilityState !== 'visible' || !navigator.onLine || busy || viewRefreshInFlight.current) return
+    if (document.visibilityState !== 'visible' || !navigator.onLine || busy || viewLoadInFlight.current > 0 || viewRefreshInFlight.current) return
     viewRefreshInFlight.current = true
     void loadViewData({ silent: true }).finally(() => { viewRefreshInFlight.current = false })
   }, [busy, loadViewData])

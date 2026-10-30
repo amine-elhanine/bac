@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { ELECTED_OFFICER_ROLES, ROLE_LABELS } from '../lib/roles'
 import { clubDateTime, initials } from './datetime'
 import { EmptyState, Modal } from './ui'
-import type { Announcement, CommunicationThread, MemberIdea, MemberIdeaReview, Profile } from './types'
+import type { Announcement, CommunicationMessage, CommunicationThread, MemberIdea, MemberIdeaReview, Profile } from './types'
 
 /** WhatsApp-style two-pane chat in Communications: a conversation list beside
  *  the open conversation, bubbles, and an input row. Replies arrive in place
@@ -18,6 +18,9 @@ function CommunicationChatPanel({ threads, profiles, canManage, onNew, onRefresh
   const [newChannelRole, setNewChannelRole] = useState<string | null>(null)
   const [body, setBody] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
   const [closing, setClosing] = useState(false); const [closureNote, setClosureNote] = useState('')
+  // Bubbles shown the moment "send" is pressed, before the server round-trip
+  // finishes. They disappear as soon as the refreshed conversation contains them.
+  const [pending, setPending] = useState<Array<{ key: string; threadId: string | null; body: string }>>([])
   const logRef = useRef<HTMLDivElement>(null)
   const memberStatusLabel: Record<string, string> = { open: t('Awaiting club reply'), awaiting_member: t('Club replied'), closed: t('Closed') }
   type ChatListItem = { key: string; role: string | null; thread: CommunicationThread | null; name: string; preview: string; time: string | null }
@@ -36,25 +39,47 @@ function CommunicationChatPanel({ threads, profiles, canManage, onNew, onRefresh
   const roleLabel = selected?.target_role ? t(ROLE_LABELS[selected.target_role] ?? selected.target_role) : newChannelRole ? t(ROLE_LABELS[newChannelRole] ?? newChannelRole) : null
   const memberName = selected ? names.get(selected.member_id) ?? t('Member') : null
   const chatName = canManage ? memberName : roleLabel
+  // The conversation bubbles plus any just-sent message still waiting for the
+  // refreshed data (identical bodies are dropped to avoid a duplicate flash).
+  const mySide: 'member' | 'club_team' = canManage ? 'club_team' : 'member'
+  const alreadyShown = new Set((selected?.messages ?? []).filter((message) => message.sender_side === mySide).map((message) => message.body))
+  const visibleMessages: CommunicationMessage[] = [
+    ...(selected?.messages ?? []),
+    ...pending
+      .filter((item) => item.threadId === selectedThreadId && !alreadyShown.has(item.body))
+      .map((item) => ({ id: item.key, thread_id: item.threadId ?? '', sender_id: '', sender_side: mySide, body: item.body, created_at: new Date().toISOString() })),
+  ]
   useEffect(() => { setBody(''); setError(''); setClosing(false); setClosureNote('') }, [selectedThreadId, newChannelRole])
   // Keep the newest message in view whenever a message lands.
-  useEffect(() => { const log = logRef.current; if (log) log.scrollTop = log.scrollHeight }, [selectedThreadId, newChannelRole, selected?.messages.length, threads])
+  useEffect(() => { const log = logRef.current; if (log) log.scrollTop = log.scrollHeight }, [selectedThreadId, newChannelRole, visibleMessages.length])
   async function send(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault(); if (!supabase || busy || !body.trim()) return
     const trimmed = body.trim()
     setBusy(true); setError('')
+    const bubbleKey = `pending-${Date.now()}-${Math.random().toString(36).slice(2)}`
     if (startingNew) {
       // First message of a conversation with a board member: the subject is
       // derived from the message so no separate subject field is needed.
       if (trimmed.length < 2) { setError(t('Enter a subject and a message of up to 4,000 characters.')); setBusy(false); return }
       const { data, error: sendError } = await supabase.rpc('start_member_communication', { p_subject: trimmed.slice(0, 140), p_body: trimmed, p_target_role: newChannelRole, p_member_id: null })
       if (sendError) { setError(sendError.message); setBusy(false); return }
-      setBody(''); setBusy(false); setNewChannelRole(null); if (typeof data === 'string') setSelectedThreadId(data); onNotify(t('Message sent.')); await onRefresh(); return
+      // Show the bubble immediately in the "new conversation" pane, then open
+      // the real conversation once the refresh has fetched it.
+      setPending((current) => [...current, { key: bubbleKey, threadId: null, body: trimmed }])
+      setBody(''); onNotify(t('Message sent.'))
+      await onRefresh()
+      setPending((current) => current.filter((item) => item.key !== bubbleKey))
+      if (typeof data === 'string') setSelectedThreadId(data)
+      setNewChannelRole(null); setBusy(false)
+      return
     }
     if (!selected) { setBusy(false); return }
-    const { error: sendError } = await supabase.rpc('send_member_communication_message', { p_thread_id: selected.id, p_body: trimmed })
+    const threadId = selected.id
+    const { error: sendError } = await supabase.rpc('send_member_communication_message', { p_thread_id: threadId, p_body: trimmed })
     if (sendError) { setError(sendError.message); setBusy(false); return }
+    setPending((current) => [...current, { key: bubbleKey, threadId, body: trimmed }])
     setBody(''); setBusy(false); onNotify(t('Message sent.')); await onRefresh()
+    setPending((current) => current.filter((item) => item.key !== bubbleKey))
   }
   async function closeThread() {
     if (!supabase || busy || !selected || closureNote.trim().length < 4) return
@@ -85,7 +110,7 @@ function CommunicationChatPanel({ threads, profiles, canManage, onNew, onRefresh
             <div className="chat-app-head-copy"><strong>{chatName}</strong><small>{canManage ? selected ? selected.status === 'closed' ? `${t('Conversation closed')}: ${selected.closure_note}` : selected.subject : '' : startingNew ? t('Board member') : selected ? memberStatusLabel[selected.status] ?? '' : ''}</small></div>
           </header>
           <div className="chat-app-log" ref={logRef}>
-            {(selected?.messages ?? []).map((message) => { const mine = canManage ? message.sender_side === 'club_team' : message.sender_side === 'member'; const authorName = canManage ? (mine ? t('You') : memberName ?? t('Member')) : mine ? t('You') : `${roleLabel ?? ''} · ${t('BAC team')}`; return <article className={`chat-bubble ${mine ? 'chat-bubble-mine' : 'chat-bubble-theirs'}`} key={message.id}><p>{message.body}</p><small>{authorName} · {clubDateTime(message.created_at)}</small></article> })}
+            {visibleMessages.map((message) => { const mine = canManage ? message.sender_side === 'club_team' : message.sender_side === 'member'; const authorName = canManage ? (mine ? t('You') : memberName ?? t('Member')) : mine ? t('You') : `${roleLabel ?? ''} · ${t('BAC team')}`; return <article className={`chat-bubble ${mine ? 'chat-bubble-mine' : 'chat-bubble-theirs'}`} key={message.id}><p>{message.body}</p><small>{authorName} · {clubDateTime(message.created_at)}</small></article> })}
             {!selected && <div className="chat-app-note">{t('Start a private conversation with the {role}.', { role: roleLabel ?? '' })}</div>}
             {selected?.status === 'closed' && <div className="chat-closed">{t('Conversation closed')}: {selected.closure_note}</div>}
           </div>
