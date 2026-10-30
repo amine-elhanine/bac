@@ -28,7 +28,7 @@ import { TaskDialog, TasksLive } from './TasksView'
 import { MemberCaseDialog, SupportLive, UpdateMemberCaseDialog } from './SupportView'
 import { AccountLive, ChangePasswordDialog } from './AccountView'
 import { ScannerDialog } from './ScannerDialog'
-import type { Announcement, ClubNotification, ClubTask, CommunicationMessage, CommunicationThread, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
+import type { Announcement, ClubNotification, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
 
 const modules: { view: LiveView; label: string; icon: typeof CalendarDays; roles: string[] }[] = [
   { view: 'Overview', label: 'Overview', icon: CalendarDays, roles: ['all'] },
@@ -62,10 +62,32 @@ const viewsByPath: Record<string, LiveView> = Object.fromEntries(
   Object.entries(viewPaths).map(([viewName, path]) => [path, viewName as LiveView])
 )
 
+/** Communications holds three sub-pages, each with its own address so a
+ *  reload (or a shared link) reopens the same one. */
+const communicationsSectionPaths: Record<CommunicationsSection, string> = {
+  messages: '/communications',
+  news: '/communications/news',
+  ideas: '/communications/ideas',
+}
+
+const communicationsSectionsByPath: Record<string, CommunicationsSection> = Object.fromEntries(
+  Object.entries(communicationsSectionPaths).map(([section, path]) => [path, section as CommunicationsSection])
+)
+
+function locationPath(): string {
+  return window.location.pathname.replace(/\/+$/, '') || '/'
+}
+
 /** The view encoded in the current URL, or Overview for unknown paths. */
 function viewFromLocation(): LiveView {
-  const path = window.location.pathname.replace(/\/+$/, '') || '/'
+  const path = locationPath()
+  if (communicationsSectionsByPath[path]) return 'Communications'
   return viewsByPath[path] ?? 'Overview'
+}
+
+/** The Communications tab encoded in the current URL (messages by default). */
+function communicationsSectionFromLocation(): CommunicationsSection {
+  return communicationsSectionsByPath[locationPath()] ?? 'messages'
 }
 
 /** The sidebar only shows modules the role can open; enforce that for URLs too. */
@@ -80,16 +102,28 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   const { t, language } = useI18n()
   const [view, setViewState] = useState<LiveView>(() => {
     const fromUrl = normalizedView(viewFromLocation(), identity.role)
-    window.history.replaceState({}, '', viewPaths[fromUrl])
+    // Keep a deep Communications link (/communications/news) when it is allowed.
+    window.history.replaceState({}, '', fromUrl === 'Communications'
+      ? communicationsSectionPaths[communicationsSectionFromLocation()]
+      : viewPaths[fromUrl])
     return fromUrl
   })
+  const [communicationsSection, setCommunicationsSection] = useState<CommunicationsSection>(communicationsSectionFromLocation)
 
   /** Every navigation pushes its path so the address shows the open page. */
   function setView(nextView: LiveView) {
     const next = normalizedView(nextView, identity.role)
     setViewState(next)
-    const path = viewPaths[next]
-    if (window.location.pathname.replace(/\/+$/, '') !== path) window.history.pushState({}, '', path)
+    const path = next === 'Communications' ? communicationsSectionPaths[communicationsSection] : viewPaths[next]
+    if (locationPath() !== path) window.history.pushState({}, '', path)
+  }
+
+  /** Switch between the three Communications sub-pages. */
+  function openCommunicationsSection(section: CommunicationsSection) {
+    setCommunicationsSection(section)
+    setViewState('Communications')
+    const path = communicationsSectionPaths[section]
+    if (locationPath() !== path) window.history.pushState({}, '', path)
   }
   const [currentTermName, setCurrentTermName] = useState('Current term')
   const [currentTermEndsOn, setCurrentTermEndsOn] = useState<string | null>(null)
@@ -514,9 +548,12 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     return () => { void client.removeChannel(channel) }
   }, [identity.id, loadNotifications, silentRefresh])
 
-  // Browser back/forward moves between the workspace pages.
+  // Browser back/forward moves between the workspace pages and Communications tabs.
   useEffect(() => {
-    const onPop = () => setViewState(normalizedView(viewFromLocation(), identity.role))
+    const onPop = () => {
+      setViewState(normalizedView(viewFromLocation(), identity.role))
+      setCommunicationsSection(communicationsSectionFromLocation())
+    }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [identity.role])
@@ -673,11 +710,17 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     Account: t('Your BAC access and sign-in security.'),
   }
 
+  const communicationsSubtitles: Record<CommunicationsSection, string> = {
+    messages: t('Private conversations between members and the board.'),
+    news: t('Official club news and updates.'),
+    ideas: t('Member suggestions and their review status.'),
+  }
+
   return <div className="live-shell">
     <aside className={`live-sidebar${mobileNavOpen ? ' live-sidebar-open' : ''}`}><div className="brand-lockup"><img src="/bac-logo.png" alt={t('Biologists in Action Club')} className="brand-mark brand-logo-image" /><div><strong>BAC<span className="brand-dot">.</span></strong><small>{t('CLUB PLATFORM')}</small></div></div><div className="club-switch"><div className="club-name"><strong>{t('Biologists in Action')}</strong><small>FST Settat · {currentTermName}</small></div></div><div className="nav-caption">{t('YOUR CLUB')}</div><nav>{visibleModules.map(({ view: destination, label, icon: Icon }) => <button key={destination} className={`nav-item ${view === destination ? 'selected' : ''}`} onClick={() => { setView(destination); setSearch(''); setMobileNavOpen(false) }}><Icon size={17} /><span>{t(label)}</span></button>)}</nav><div className="live-profile"><button className={`profile-open${view === 'Account' ? ' active' : ''}`} onClick={() => { setView('Account'); setMobileNavOpen(false) }} aria-label={t('My account')}><div className="avatar avatar-dark">{initials(identity.name)}</div><div><strong>{identity.name}</strong><small>{t(ROLE_LABELS[identity.role] ?? 'Member')}</small></div></button><button className="icon-button" onClick={onSignOut} aria-label={t('Sign out')}><LogOut size={16} /></button></div></aside>
     {mobileNavOpen && <button className="scrim" aria-label={t('Close menu')} onClick={() => setMobileNavOpen(false)} />}
     <main className="live-main"><header className="live-topbar"><button className="icon-button mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label={t('Open menu')}><Menu size={20} /></button><div><span>{t('Club')}</span><ChevronRight size={13} /><strong>{viewTitles[view]}</strong></div><div className="live-top-actions"><span className={`connected-state ${networkOnline ? '' : 'network-offline'}`} role="status"><i /> {networkOnline ? t('Network online') : t('Offline')}</span><div className="notification-anchor"><button className="icon-button notification-trigger" onClick={() => { setNotificationsOpen((open) => !open); if (!notificationsOpen) void loadNotifications() }} aria-label={`${t('Notifications')}${notifications.some((item) => !item.read_at) ? `, ${t('unread items')}` : ''}`}><Bell size={18} />{notifications.some((item) => !item.read_at) && <i />}</button>{notificationsOpen && <div className="notification-popover"><div className="notification-popover-head"><strong>{t('Notifications')}</strong><span>{t('{count} unread', { count: notifications.filter((item) => !item.read_at).length })}</span>{notifications.some((item) => !item.read_at) && <button type="button" className="notification-mark-all" onClick={() => void markAllNotificationsRead()}>{t('Mark all read')}</button>}</div>{notifications.length ? notifications.map((item) => <button className={`notification-item ${item.read_at ? '' : 'notification-unread'}`} key={item.id} onClick={() => void openNotification(item)}><strong>{item.title}</strong><span>{item.body}</span><small>{clubDateTime(item.created_at)}</small></button>) : <p className="notification-empty">{t('You’re all caught up.')}</p>}</div>}</div></div></header>
-      <div className="live-content"><div className="live-title-row"><div><span className="eyebrow">{t('BIOLOGISTS IN ACTION · FST SETTAT')}</span><h1>{view === 'Overview' ? `${t('Welcome, {name}', { name: identity.name.split(' ')[0] })}` : viewTitles[view]}</h1><p>{viewSubtitles[view]}</p></div>{view === 'Account' && <button className="button button-outline" onClick={() => setView('Overview')}><ArrowLeft size={15} /> {t('Back')}</button>}</div>
+      <div className="live-content"><div className="live-title-row"><div><span className="eyebrow">{t('BIOLOGISTS IN ACTION · FST SETTAT')}</span><h1>{view === 'Overview' ? `${t('Welcome, {name}', { name: identity.name.split(' ')[0] })}` : viewTitles[view]}</h1><p>{view === 'Communications' ? communicationsSubtitles[communicationsSection] : viewSubtitles[view]}</p></div>{view === 'Account' && <button className="button button-outline" onClick={() => setView('Overview')}><ArrowLeft size={15} /> {t('Back')}</button>}</div>
         {error && <div className="live-error" role="alert"><ShieldCheck size={16} /><span>{error}</span><button onClick={() => setError('')} aria-label={t('Dismiss')}><X size={15} /></button></div>}
         {!networkOnline && <div className="live-offline-notice" role="status">{t('You’re offline. Displayed data may be out of date, and live actions such as attendance check-in need a connection.')}</div>}
         {busy && <div className="live-loading">{t('Loading club data…')}</div>}
@@ -687,7 +730,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         {!busy && view === 'Attendance' && <AttendanceLive events={events} role={identity.role} memberId={identity.id} session={activeSession} token={qrToken} onOpen={startAttendance} onClose={closeAttendance} onScan={() => setScannerOpen(true)} onReview={setAttendanceReviewEvent} />}
         {!busy && view === 'Finance' && <FinanceLive entries={entries} balanceMinor={financeBalanceMinor} reconciliation={reconciliation} closures={periodClosures} financialReconciliations={financialReconciliations} purchaseRequests={purchaseRequests} events={events} profiles={profiles} canManage={canViewFinance} canRecord={canFinance} canDecidePurchase={canDecidePurchase} exporting={exportBusy} onExport={() => void exportFinanceLedger()} onOpenReceipt={setReceiptPreviewPath} onCreate={() => { setPurchaseRequestToPay(null); setMoneyModal(true) }} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onPayPurchase={(request) => { setPurchaseRequestToPay(request); setMoneyModal(true) }} onReverse={setReversalEntry} onGenerate={generatePaymentExpectations} onContributionChanged={async () => { await loadViewData(); notify(t('Finance records refreshed.')) }} onPeriodClosed={async () => { await loadViewData(); notify(t('Financial period closed and recorded in the audit log.')) }} onReconciled={async () => { await loadViewData(); await loadNotifications(); notify(t('Financial reconciliation recorded in the audit log.')) }} />}
         {!busy && view === 'Points' && <PointsLive entries={pointEntries} balances={pointBalances} profiles={profiles} memberId={identity.id} canViewAll={pointsViewers.includes(identity.role)} canManage={canHR} onAdd={() => setPointsModal(true)} />}
-        {!busy && view === 'Communications' && <CommunicationsLive rows={announcements} ideas={ideas} ideaReviews={ideaReviews} threads={communicationThreads} profiles={profiles} canManage={canComms} canReviewIdeas={canReviewIdeas} canManageInbox={canManageCommunicationInbox} onPublish={() => setAnnouncementModal(true)} onSubmitIdea={() => setIdeaModal(true)} onReviewIdea={setIdeaToReview} onNewCommunication={() => setCommunicationFormOpen(true)} onRefresh={async () => { await loadViewData(); await loadNotifications() }} onNotify={notify} />}
+        {!busy && view === 'Communications' && <CommunicationsLive section={communicationsSection} onSectionChange={openCommunicationsSection} rows={announcements} ideas={ideas} ideaReviews={ideaReviews} threads={communicationThreads} profiles={profiles} canManage={canComms} canReviewIdeas={canReviewIdeas} canManageInbox={canManageCommunicationInbox} onPublish={() => setAnnouncementModal(true)} onSubmitIdea={() => setIdeaModal(true)} onReviewIdea={setIdeaToReview} onNewCommunication={() => setCommunicationFormOpen(true)} onRefresh={async () => { await loadViewData(); await loadNotifications() }} onNotify={notify} />}
         {!busy && view === 'Logistics' && <LogisticsLive rows={inventory} movements={inventoryMovements} purchaseRequests={purchaseRequests} profiles={profiles} events={events} canManage={canLogistics} canDecidePurchase={canDecidePurchase} onRequestPurchase={() => setPurchaseRequestModal(true)} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onAdd={() => setInventoryModal(true)} onMove={setInventoryMovementItem} />}
         {!busy && view === 'Support' && <SupportLive rows={memberCases} profiles={profiles} canManage={hrCaseManagers.includes(identity.role)} onSubmit={() => setSupportModal(true)} onReview={setCaseToUpdate} />}
         {!busy && view === 'Account' && <AccountLive identity={identity} onChangePassword={() => setPasswordModal(true)} onInstall={() => setInstallGuideOpen(true)} />}

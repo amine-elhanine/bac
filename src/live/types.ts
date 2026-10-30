@@ -26,6 +26,8 @@ export type Announcement = { id: string; title: string; body: string; audience: 
 export type MemberIdea = { id: string; title: string; description: string; status: string; submitted_by: string; review_note: string; reviewed_at: string | null; created_at: string }
 export type MemberIdeaReview = { id: string; idea_id: string; previous_status: string; new_status: string; review_note: string; changed_by: string; created_at: string }
 export type CommunicationMessage = { id: string; thread_id: string; sender_id: string; sender_side: 'member' | 'club_team'; body: string; created_at: string }
+/** The three sub-pages of the Communications module. */
+export type CommunicationsSection = 'messages' | 'news' | 'ideas'
 export type CommunicationThread = {
   id: string; member_id: string; subject: string; status: 'open' | 'awaiting_member' | 'closed'
   target_role?: string | null; closure_note: string | null; created_at: string; updated_at: string; messages: CommunicationMessage[]

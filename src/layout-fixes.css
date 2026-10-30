@@ -155,3 +155,15 @@
   .chat-app.chat-app-open .chat-app-window{display:flex}
   .chat-back{display:inline-flex}
 }
+
+/* ─── Communications sub-pages (Messages / News / Ideas) ──────────────────── */
+.communications-hub{display:flex;flex-direction:column}
+.comms-tabs{display:inline-flex;align-self:flex-start;max-width:100%;gap:4px;padding:4px;margin-bottom:14px;background:var(--paper);border:1px solid var(--line);border-radius:10px;overflow-x:auto}
+.comms-tab{display:inline-flex;align-items:center;gap:7px;border:0;background:transparent;color:var(--muted);font:700 10px 'Segoe UI',Arial,sans-serif;padding:8px 15px;border-radius:7px;white-space:nowrap;cursor:pointer;transition:background .15s,color .15s}
+.comms-tab:hover{background:var(--wash);color:var(--ink)}
+.comms-tab-active,.comms-tab-active:hover{background:#14532d;color:#fff}
+:root[data-theme="dark"] .comms-tab-active,:root[data-theme="dark"] .comms-tab-active:hover{background:#2f5e3f;color:#fff}
+@media (max-width: 620px){
+  .comms-tabs{display:flex;width:100%}
+  .comms-tab{flex:1;justify-content:center;padding:8px 10px}
+}
