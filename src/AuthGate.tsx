@@ -61,9 +61,14 @@ function AuthGateInner() {
       const assignment = (assignments ?? []).find((row) => row.role !== 'member')
       const roleMeta = assignment?.club_roles as unknown as { display_name?: string; permissions?: string[]; is_custom?: boolean } | null
       const isCustomRole = Boolean(roleMeta?.is_custom)
-      const role = assignment && !isCustomRole ? assignment.role as string : 'member'
-      const roleName = isCustomRole && roleMeta?.display_name ? roleMeta.display_name : role
-      const isAdminRole = Boolean(assignment && (assignment.role.toLowerCase() === 'admin' || roleName.trim().toLowerCase() === 'admin'))
+      const appMetadata = session?.user.app_metadata ?? {}
+      const appRole = String(appMetadata.platform_role ?? appMetadata.role ?? '').trim().toLowerCase()
+      const appRoles = Array.isArray(appMetadata.roles) ? appMetadata.roles.map((value: unknown) => String(value).toLowerCase()) : []
+      const platformAdmin = appRole === 'admin' || appRole === 'super_admin' || appMetadata.is_admin === true || appMetadata.platform_admin === true || appMetadata.admin === true || appRoles.includes('admin') || appRoles.includes('super_admin')
+      const assignedRoleName = isCustomRole && roleMeta?.display_name ? roleMeta.display_name : assignment?.role ?? 'member'
+      const isAdminRole = platformAdmin || Boolean(assignment && (assignment.role.toLowerCase() === 'admin' || assignedRoleName.trim().toLowerCase() === 'admin'))
+      const role = isAdminRole ? 'admin' : assignment && !isCustomRole ? assignment.role as string : 'member'
+      const roleName = isAdminRole ? 'Admin' : assignedRoleName
       let grantedPermissions = [...(assignment && !isCustomRole ? [assignment.role as string] : []), ...(roleMeta?.permissions ?? [])]
       if (isAdminRole) {
         const { data: catalog, error: catalogError } = await client.from('club_permission_catalog').select('permission_key')

@@ -1,5 +1,5 @@
 -- Platform administrators have the complete permission catalog, including future actions.
--- Admin remains a club role assignment, so unassigned accounts gain no privileges.
+-- Admin access requires a current club role assignment or trusted Supabase app_metadata claim.
 create or replace function public.has_club_permission(p_permission_key text)
 returns boolean language sql stable security definer set search_path = public, pg_temp
 as $$
@@ -16,6 +16,13 @@ as $$
         or cr.role_key='admin'
         or p_permission_key=any(cr.permissions)
       )
+  ) or (
+    lower(coalesce(auth.jwt()->'app_metadata'->>'platform_role',auth.jwt()->'app_metadata'->>'role','')) in ('admin','super_admin')
+    or auth.jwt()->'app_metadata'->'is_admin'='true'::jsonb
+    or auth.jwt()->'app_metadata'->'platform_admin'='true'::jsonb
+    or auth.jwt()->'app_metadata'->'admin'='true'::jsonb
+    or coalesce(auth.jwt()->'app_metadata'->'roles','[]'::jsonb) ? 'admin'
+    or coalesce(auth.jwt()->'app_metadata'->'roles','[]'::jsonb) ? 'super_admin'
   );
 $$;
 revoke all on function public.has_club_permission(text) from public,anon;
@@ -40,6 +47,13 @@ as $$
         or ra.role=any(allowed_roles)
         or cr.permission_roles && allowed_roles
       )
+  ) or (
+    lower(coalesce(auth.jwt()->'app_metadata'->>'platform_role',auth.jwt()->'app_metadata'->>'role','')) in ('admin','super_admin')
+    or auth.jwt()->'app_metadata'->'is_admin'='true'::jsonb
+    or auth.jwt()->'app_metadata'->'platform_admin'='true'::jsonb
+    or auth.jwt()->'app_metadata'->'admin'='true'::jsonb
+    or coalesce(auth.jwt()->'app_metadata'->'roles','[]'::jsonb) ? 'admin'
+    or coalesce(auth.jwt()->'app_metadata'->'roles','[]'::jsonb) ? 'super_admin'
   );
 $$;
 revoke all on function public.has_club_role(text[]) from public,anon;
