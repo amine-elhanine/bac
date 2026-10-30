@@ -38,7 +38,7 @@ const modules: { view: LiveView; label: string; icon: typeof CalendarDays; roles
   { view: 'Points', label: 'Points', icon: Coins, roles: ['points.view', 'hr.points.manage'] },
   { view: 'Calendar', label: 'Calendar', icon: CalendarDays, roles: ['events.view', 'events.create', 'events.edit', 'events.cancel', 'events.complete'] },
   { view: 'Tasks', label: 'Tasks', icon: Check, roles: ['tasks.view', 'tasks.manage', 'tasks.delete'] },
-  { view: 'Communications', label: 'Communications', icon: MessageCircle, roles: ['communications.news.manage', 'communications.inbox.manage', 'communications.inbox.close', 'communications.ideas.review'] },
+  { view: 'Communications', label: 'Communications', icon: MessageCircle, roles: ['communications.news.manage', 'communications.inbox.manage', 'communications.ideas.review'] },
   { view: 'Logistics', label: 'Logistics', icon: Package, roles: ['logistics.view', 'logistics.inventory.manage', 'logistics.purchases.request', 'finance.purchases.review'] },
   { view: 'Support', label: 'HR Support', icon: ShieldCheck, roles: ['hr.cases.view', 'hr.cases.manage'] },
   { view: 'Roles & Permissions', label: 'Roles & Permissions', icon: ShieldCheck, roles: ['roles.view', 'roles.manage', 'roles.assign_custom'] },

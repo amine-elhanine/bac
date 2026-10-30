@@ -9,7 +9,7 @@ Deno.serve(async (request) => {
     const actor = await authenticatedUser(request)
     if (!actor) return respond({ error: 'Sign in required' }, 401)
     const admin = serviceClient()
-    if (!(await hasPermission(admin, actor.id, 'members.invite'))) return respond({ error: 'Not authorized to invite members' }, 403)
+    if (!(await hasPermission(admin, actor, 'members.invite'))) return respond({ error: 'Not authorized to invite members' }, 403)
 
     const body = await request.json().catch(() => null) as {
       email?: string; full_name?: string; member_code?: string; phone_number?: string; study_program?: string; cohort?: string; delivery_method?: 'email' | 'manual'

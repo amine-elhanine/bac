@@ -12,7 +12,7 @@ Deno.serve(async (request) => {
     const actor = await authenticatedUser(request)
     if (!actor) return respond({ error: 'Sign in required' }, 401)
     const admin = serviceClient()
-    if (!(await hasPermission(admin, actor.id, 'members.account.manage'))) return respond({ error: 'Not authorized to delete members' }, 403)
+    if (!(await hasPermission(admin, actor, 'members.account.manage'))) return respond({ error: 'Not authorized to delete members' }, 403)
 
     const body = await request.json().catch(() => null) as { member_id?: string; reason?: string } | null
     const memberId = body?.member_id ?? ''

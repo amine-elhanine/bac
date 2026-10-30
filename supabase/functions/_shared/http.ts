@@ -32,11 +32,18 @@ export async function authenticatedUser(request: Request): Promise<User | null> 
   return data.user
 }
 
+/** The single documented platform-admin claim (app_metadata.platform_role). */
+export function isPlatformAdmin(user: User): boolean {
+  return user.app_metadata?.platform_role === 'platform_admin'
+}
+
 export async function hasRole(
   admin: ReturnType<typeof serviceClient>,
-  userId: string,
+  actor: User,
   roles: string[],
 ) {
+  if (isPlatformAdmin(actor)) return true
+  const userId = actor.id
   const { data: profile, error: profileError } = await admin
     .from('member_profiles')
     .select('status,must_change_password')
@@ -61,9 +68,11 @@ export async function hasRole(
 
 export async function hasPermission(
   admin: ReturnType<typeof serviceClient>,
-  userId: string,
+  actor: User,
   permissionKey: string,
 ) {
+  if (isPlatformAdmin(actor)) return true
+  const userId = actor.id
   const { data: profile, error: profileError } = await admin
     .from('member_profiles')
     .select('status,must_change_password')
