@@ -106,5 +106,52 @@
 .chat-close-toggle{border:0;background:none;color:var(--muted);font-size:10px;padding:8px 0 0;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .chat-close-toggle:hover{color:#a03d31}
 .chat-close-form{display:flex;gap:7px;flex-wrap:wrap;padding:8px 0 0}
+.chat-close-form{display:flex;gap:7px;flex-wrap:wrap;padding:8px 0 0}
 .chat-close-form .communication-close-note{flex:1;min-width:0;height:34px;border:1px solid #dfe5dc;border-radius:7px;background:var(--paper);color:var(--ink);padding:0 9px;font:inherit}
-.chat-waiting{margin:10px 0 0;color:var(--muted);font-size:10px}
+
+/* ─── WhatsApp-style two-pane chat (member ↔ board messaging) ─────────────── */
+.chat-app-panel{padding:0}
+.chat-app{display:flex;height:min(72vh,720px);min-height:440px;background:var(--paper);overflow:hidden}
+.chat-app-list{width:302px;flex-shrink:0;border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--paper)}
+.chat-app-list-head{display:flex;justify-content:space-between;align-items:center;gap:9px;padding:14px 14px 11px;border-bottom:1px solid var(--line)}
+.chat-app-list-head h2{font:700 13px 'Segoe UI',Arial,sans-serif;margin:0 0 3px;color:var(--ink)}
+.chat-app-list-head p{font-size:9px;color:var(--muted);margin:0;line-height:1.45}
+.chat-app-list-head .button{width:32px;height:32px;padding:0;justify-content:center;flex-shrink:0}
+.chat-app-scroll{flex:1;overflow-y:auto;min-height:0}
+.chat-app-item{display:flex;align-items:center;gap:10px;width:100%;padding:11px 13px;border:0;border-bottom:1px solid var(--line);background:var(--paper);text-align:start;font:inherit;color:inherit;cursor:pointer}
+.chat-app-item:hover,.chat-app-item-active{background:var(--wash)}
+.chat-app-item:nth-last-child(1){border-bottom:0}
+.chat-app-avatar{width:35px;height:35px;border-radius:50%;background:#14532d;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;letter-spacing:.4px}
+:root[data-theme="dark"] .chat-app-avatar{background:#2f5e3f}
+.chat-app-item-copy{min-width:0;flex:1;text-align:start}
+.chat-app-item-copy strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.chat-app-item-copy p{margin:3px 0 0;font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-app-item-meta{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0}
+.chat-app-item-meta small{font-size:9px;color:var(--muted);white-space:nowrap}
+.chat-app-item-meta i{width:8px;height:8px;border-radius:50%;background:#77a477}
+.chat-app-note{margin:16px auto;color:var(--muted);font-size:10px;text-align:center;max-width:280px;line-height:1.5}
+.chat-app-window{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--paper)}
+.chat-app-head{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--line)}
+.chat-app-head .chat-app-avatar{width:32px;height:32px;font-size:10px}
+.chat-app-head-copy{min-width:0;flex:1}
+.chat-app-head-copy strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.chat-app-head-copy small{display:block;font-size:9px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-app-log{flex:1;overflow-y:auto;min-height:0;padding:15px 14px;display:flex;flex-direction:column;gap:8px}
+.chat-app-foot{padding:10px 12px 6px;border-top:1px solid var(--line)}
+.chat-app-foot .chat-input-row{padding-top:0}
+.chat-app-error{margin:6px 2px 0;font-size:10px;padding:7px 10px}
+.chat-app-close-slot{padding:4px 14px 10px}
+.chat-app-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;color:var(--muted);padding:26px}
+.chat-app-empty svg{color:#9db2a0;opacity:.7}
+.chat-app-empty strong{color:var(--ink);font-size:14px}
+.chat-app-empty p{font-size:10px;line-height:1.6;max-width:280px;margin:0}
+.chat-back{width:32px;height:32px;padding:0;justify-content:center;display:none}
+[dir="rtl"] .chat-back svg{transform:scaleX(-1)}
+@media (max-width: 820px){
+  .chat-app{height:calc(100vh - 250px);min-height:360px}
+  .chat-app-list{width:100%;border-right:0}
+  .chat-app-window{display:none}
+  .chat-app.chat-app-open .chat-app-list{display:none}
+  .chat-app.chat-app-open .chat-app-window{display:flex}
+  .chat-back{display:inline-flex}
+}
