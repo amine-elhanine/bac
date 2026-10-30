@@ -59,6 +59,33 @@ export async function hasRole(
   }))
 }
 
+export async function hasPermission(
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  permissionKey: string,
+) {
+  const { data: profile, error: profileError } = await admin
+    .from('member_profiles')
+    .select('status,must_change_password')
+    .eq('id', userId)
+    .maybeSingle()
+  if (profileError) throw new Error('Unable to verify member status')
+  if (!profile || profile.status !== 'active' || profile.must_change_password) return false
+
+  const { data, error } = await admin
+    .from('role_assignments')
+    .select('club_roles!role_assignments_role_fkey(permissions),club_terms!inner(is_current)')
+    .eq('member_id', userId)
+    .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
+    .lte('starts_at', new Date().toISOString())
+    .eq('club_terms.is_current', true)
+  if (error) throw new Error('Unable to verify club permission')
+  return Boolean(data?.some((assignment) => {
+    const role = assignment.club_roles as unknown as { permissions?: string[] } | null
+    return (role?.permissions ?? []).includes(permissionKey)
+  }))
+}
+
 export async function sha256Hex(value: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')

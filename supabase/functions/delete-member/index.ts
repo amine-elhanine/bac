@@ -1,6 +1,5 @@
-import { authenticatedUser, corsPreflight, hasRole, respond, serviceClient } from '../_shared/http.ts'
+import { authenticatedUser, corsPreflight, hasPermission, respond, serviceClient } from '../_shared/http.ts'
 
-const memberManagers = ['president', 'vice_president', 'hr', 'vice_hr']
 
 // Permanently removes a member account. Only allowed for members without any
 // club history — a member with attendance, finance, points, tasks, cases, or
@@ -13,7 +12,7 @@ Deno.serve(async (request) => {
     const actor = await authenticatedUser(request)
     if (!actor) return respond({ error: 'Sign in required' }, 401)
     const admin = serviceClient()
-    if (!(await hasRole(admin, actor.id, memberManagers))) return respond({ error: 'Not authorized to delete members' }, 403)
+    if (!(await hasPermission(admin, actor.id, 'members.account.manage'))) return respond({ error: 'Not authorized to delete members' }, 403)
 
     const body = await request.json().catch(() => null) as { member_id?: string; reason?: string } | null
     const memberId = body?.member_id ?? ''

@@ -9,8 +9,8 @@ import { downloadCsv } from '../lib/csv'
 import { supabase } from '../lib/supabase'
 import {
   attendanceManagers, commsManagers, communicationInboxManagers, eventManagers, financeDeciders,
-  financeManagers, financeViewers, hrCaseManagers, hrManagers, ideaReviewManagers, logisticsManagers,
-  memberManagers, pointsViewers, ROLE_LABELS, taskOfficers,
+  financeManagers, financeViewers, hrManagers, ideaReviewManagers, logisticsManagers,
+  pointsViewers, ROLE_LABELS, taskOfficers,
 } from '../lib/roles'
 import { clubDateTime, clubDateKey, initials, setDateLocale } from './datetime'
 import { localeFor } from '../i18n'
@@ -18,6 +18,7 @@ import { OverviewLive } from './Overview'
 import { CalendarLive } from './CalendarView'
 import { CancelEventDialog, CompleteEventDialog, EventDialog } from './EventDialogs'
 import { InviteMemberDialog, MemberPasswordResetDialog, MemberProfileDialog, MemberRoleDialog, MembersLive, MemberStatusDialog, StartTermDialog, TemporaryMemberPasswordDialog } from './MembersView'
+import { RolesPermissionsLive } from './RolesPermissionsView'
 import { AttendanceLive, AttendanceReviewDialog } from './AttendanceView'
 import { FinanceLive } from './FinanceView'
 import { MoneyDialog, ReceiptDialog, ReversalDialog } from './FinanceDialogs'
@@ -29,19 +30,20 @@ import { TaskDialog, TasksLive } from './TasksView'
 import { MemberCaseDialog, SupportLive, UpdateMemberCaseDialog } from './SupportView'
 import { AccountLive, ChangePasswordDialog } from './AccountView'
 import { ScannerDialog } from './ScannerDialog'
-import type { Announcement, ClubNotification, ClubRoleDefinition, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
+import type { Announcement, ClubNotification, ClubPermissionDefinition, ClubRoleDefinition, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
 
 const modules: { view: LiveView; label: string; icon: typeof CalendarDays; roles: string[] }[] = [
   { view: 'Overview', label: 'Overview', icon: CalendarDays, roles: ['all'] },
-  { view: 'Members', label: 'Members', icon: Users, roles: memberManagers },
+  { view: 'Members', label: 'Members', icon: Users, roles: ['members.view'] },
   { view: 'Attendance', label: 'Attendance', icon: ClipboardCheck, roles: ['all'] },
   { view: 'Finance', label: 'Finance', icon: Wallet, roles: ['all'] },
   { view: 'Points', label: 'Points', icon: Coins, roles: ['all'] },
   { view: 'Calendar', label: 'Calendar', icon: CalendarDays, roles: ['all'] },
   { view: 'Tasks', label: 'Tasks', icon: Check, roles: ['all'] },
   { view: 'Communications', label: 'Communications', icon: MessageCircle, roles: ['all'] },
-  { view: 'Logistics', label: 'Logistics', icon: Package, roles: ['president', 'vice_president', 'logistics_officer', 'vice_logistics_officer'] },
+  { view: 'Logistics', label: 'Logistics', icon: Package, roles: ['logistics.view', 'logistics.inventory.manage'] },
   { view: 'Support', label: 'HR Support', icon: ShieldCheck, roles: ['all'] },
+  { view: 'Roles & Permissions', label: 'Roles & Permissions', icon: ShieldCheck, roles: ['roles.view', 'roles.manage'] },
 ]
 
 const notificationDestinations: Partial<Record<string, LiveView>> = {
@@ -56,7 +58,7 @@ const notificationDestinations: Partial<Record<string, LiveView>> = {
 const viewPaths: Record<LiveView, string> = {
   Overview: '/', Members: '/members', Attendance: '/attendance', Finance: '/finance',
   Points: '/points', Calendar: '/calendar', Tasks: '/tasks', Communications: '/communications',
-  Logistics: '/logistics', Support: '/support', Account: '/account',
+  Logistics: '/logistics', Support: '/support', 'Roles & Permissions': '/roles', Account: '/account',
 }
 
 const viewsByPath: Record<string, LiveView> = Object.fromEntries(
@@ -132,6 +134,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [memberRoles, setMemberRoles] = useState<Record<string, string>>({})
   const [roleCatalog, setRoleCatalog] = useState<ClubRoleDefinition[]>([])
+  const [permissionCatalog, setPermissionCatalog] = useState<ClubPermissionDefinition[]>([])
   const [entries, setEntries] = useState<MoneyEntry[]>([])
   const [periodClosures, setPeriodClosures] = useState<FinancialPeriodClosure[]>([])
   const [financialReconciliations, setFinancialReconciliations] = useState<FinancialReconciliation[]>([])
@@ -203,6 +206,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   useEffect(() => { setDateLocale(localeFor(language)) }, [language])
 
   const hasRoles = useCallback((roles: string[]) => roles.some((role) => identity.permissions.includes(role)), [identity.permissions])
+  const hasPermission = useCallback((permission: string) => identity.permissions.includes(permission), [identity.permissions])
   const canEvents = hasRoles(eventManagers)
   const canViewFinance = hasRoles(financeViewers)
   const canFinance = hasRoles(financeManagers)
@@ -337,17 +341,27 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         }
         setDashboardMetrics(next)
       }
-      if (view === 'Members') {
+      if (view === 'Members' && hasPermission('members.view')) {
         const { data, error: queryError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').order('full_name').limit(250)
         if (queryError) throw queryError
         setProfiles((data ?? []) as Profile[])
-        const { data: roleRows, error: catalogError } = await supabase.from('club_roles').select('role_key,display_name,permission_roles,is_custom').order('display_name')
+        const { data: roleRows, error: catalogError } = await supabase.from('club_roles').select('role_key,display_name,permission_roles,permissions,is_custom').order('display_name')
         if (catalogError) throw catalogError
         setRoleCatalog((roleRows ?? []) as ClubRoleDefinition[])
         const now = new Date().toISOString()
         const { data: assignments, error: roleError } = await supabase.from('role_assignments').select('member_id,role,club_terms!inner(is_current)').eq('club_terms.is_current', true).lte('starts_at', now).or(`ends_at.is.null,ends_at.gt.${now}`)
         if (roleError) throw roleError
         setMemberRoles(Object.fromEntries((assignments ?? []).filter((assignment) => assignment.role !== 'member').map((assignment) => [assignment.member_id, assignment.role])))
+      }
+      if (view === 'Roles & Permissions') {
+        const [{ data: roleRows, error: rolesError }, { data: permissionRows, error: permissionsError }] = await Promise.all([
+          supabase.from('club_roles').select('role_key,display_name,permission_roles,permissions,is_custom').order('display_name'),
+          supabase.from('club_permission_catalog').select('permission_key,module_name,display_name,description,built_in_roles').order('module_name').order('display_name'),
+        ])
+        if (rolesError) throw rolesError
+        if (permissionsError) throw permissionsError
+        setRoleCatalog((roleRows ?? []) as ClubRoleDefinition[])
+        setPermissionCatalog((permissionRows ?? []) as ClubPermissionDefinition[])
       }
       if (view === 'Finance') {
         const [{ data, error: queryError }, { data: reconciliationRows, error: reconciliationError }, { data: balanceRows, error: balanceError }, { data: periodRows, error: periodError }, { data: requestRows, error: requestError }, { data: cashRows, error: cashError }] = await Promise.all([
@@ -434,11 +448,11 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
           } else setProfiles([])
         }
       }
-      if (view === 'Support') {
+      if (view === 'Support' && hasPermission('hr.cases.view')) {
         const { data, error: queryError } = await supabase.from('member_cases').select('id,submitted_by,title,description,people_involved,status,response,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
         if (queryError) throw queryError
         setMemberCases((data ?? []) as MemberCase[])
-        if (hasRoles(hrCaseManagers)) {
+        if (hasPermission('members.view')) {
           const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').order('full_name').limit(250)
           if (memberError) throw memberError
           setProfiles((memberRows ?? []) as Profile[])
@@ -481,7 +495,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('Could not load this workspace. Check your connection and access.'))
     } finally { viewLoadInFlight.current -= 1; if (showSpinner) setBusy(false) }
-  }, [view, identity.id, canHR, canViewFinance, canLogistics, canReviewIdeas, canManageCommunicationInbox, loadEvents, hasRoles, t])
+  }, [view, identity.id, canHR, canViewFinance, canLogistics, canReviewIdeas, canManageCommunicationInbox, loadEvents, hasRoles, hasPermission, t])
 
   async function recordInventoryMovement(input: { itemId: string; movementType: string; quantity: number; memberId: string | null; eventId: string | null; reason: string }) {
     if (!supabase) return
@@ -696,7 +710,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   const viewTitles: Record<LiveView, string> = {
     Overview: t('Overview'), Members: t('Members'), Attendance: t('Attendance'), Finance: t('Club finances'),
     Points: t('Engagement points'), Calendar: t('Calendar'), Tasks: t('Tasks'), Communications: t('Club news'),
-    Logistics: t('Tools & logistics'), Support: t('HR Support'), Account: t('My account'),
+    Logistics: t('Tools & logistics'), Support: t('HR Support'), 'Roles & Permissions': t('Roles & Permissions'), Account: t('My account'),
   }
   const viewSubtitles: Record<LiveView, string> = {
     Overview: t('Your live club workspace.'),
@@ -709,6 +723,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     Communications: t('Announcements, ideas, and member updates.'),
     Logistics: t('The tools and materials that support club activities.'),
     Support: t('A confidential channel for members to contact HR.'),
+    'Roles & Permissions': t('Manage custom roles and granular access permissions.'),
     Account: t('Your BAC access and sign-in security.'),
   }
 
@@ -728,13 +743,14 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         {busy && <div className="live-loading">{t('Loading club data…')}</div>}
         {!busy && view === 'Overview' && <OverviewLive identity={identity} upcoming={upcomingEvents} metrics={dashboardMetrics} onNavigate={setView} onOpenNotifications={() => { setNotificationsOpen(true); void loadNotifications() }} />}
         {!busy && view === 'Calendar' && <CalendarLive events={events} canManage={canEvents} onCreate={() => { setEventToEdit(null); setEventModal(true) }} onEdit={(event) => { setEventToEdit(event); setEventModal(true) }} onCancel={setEventToCancel} onComplete={setEventToComplete} />}
-        {!busy && view === 'Members' && <MembersLive profiles={filteredProfiles} roles={memberRoles} roleCatalog={roleCatalog} search={search} setSearch={setSearch} canManage={canHR || hasRoles(['president', 'vice_president'])} canManageRoles={hasRoles(['president'])} onInvite={() => setInviteMemberModal(true)} onStartNewTerm={() => setTermHandoverOpen(true)} onChangeStatus={(member, nextStatus) => setStatusMember({ member, nextStatus })} onEdit={setEditMember} onManageRole={(member, nextRole) => setRoleMember({ member, nextRole })} onResetPassword={setPasswordResetMember} onDeleted={() => loadViewData()} onRoleCreated={() => loadViewData()} />}
+        {!busy && view === 'Members' && <MembersLive profiles={filteredProfiles} roles={memberRoles} roleCatalog={roleCatalog} search={search} setSearch={setSearch} canManage={hasPermission('members.profile.edit') || hasPermission('members.status.edit')} canManageRoles={hasPermission('members.roles.view')} canEditProfiles={hasPermission('members.profile.edit')} canChangeStatus={hasPermission('members.status.edit')} canManageAccounts={hasPermission('members.account.manage')} canInvite={hasPermission('members.invite')} onInvite={() => setInviteMemberModal(true)} onStartNewTerm={() => setTermHandoverOpen(true)} onChangeStatus={(member, nextStatus) => setStatusMember({ member, nextStatus })} onEdit={setEditMember} onManageRole={(member, nextRole) => setRoleMember({ member, nextRole })} onResetPassword={setPasswordResetMember} onDeleted={() => loadViewData()} />}
+        {!busy && view === 'Roles & Permissions' && <RolesPermissionsLive roles={roleCatalog} permissions={permissionCatalog} canManage={hasPermission('roles.manage')} onChanged={() => loadViewData()} />}
         {!busy && view === 'Attendance' && <AttendanceLive events={events} role={identity.role} roles={identity.permissions} memberId={identity.id} session={activeSession} token={qrToken} onOpen={startAttendance} onClose={closeAttendance} onScan={() => setScannerOpen(true)} onReview={setAttendanceReviewEvent} />}
         {!busy && view === 'Finance' && <FinanceLive entries={entries} balanceMinor={financeBalanceMinor} reconciliation={reconciliation} closures={periodClosures} financialReconciliations={financialReconciliations} purchaseRequests={purchaseRequests} events={events} profiles={profiles} canManage={canViewFinance} canRecord={canFinance} canDecidePurchase={canDecidePurchase} exporting={exportBusy} onExport={() => void exportFinanceLedger()} onOpenReceipt={setReceiptPreviewPath} onCreate={() => { setPurchaseRequestToPay(null); setMoneyModal(true) }} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onPayPurchase={(request) => { setPurchaseRequestToPay(request); setMoneyModal(true) }} onReverse={setReversalEntry} onGenerate={generatePaymentExpectations} onContributionChanged={async () => { await loadViewData(); notify(t('Finance records refreshed.')) }} onPeriodClosed={async () => { await loadViewData(); notify(t('Financial period closed and recorded in the audit log.')) }} onReconciled={async () => { await loadViewData(); await loadNotifications(); notify(t('Financial reconciliation recorded in the audit log.')) }} />}
         {!busy && view === 'Points' && <PointsLive entries={pointEntries} balances={pointBalances} profiles={profiles} memberId={identity.id} canViewAll={hasRoles(pointsViewers)} canManage={canHR} onAdd={() => setPointsModal(true)} />}
         {!busy && view === 'Communications' && <CommunicationsLive section={communicationsSection} onSectionChange={openCommunicationsSection} rows={announcements} ideas={ideas} ideaReviews={ideaReviews} threads={communicationThreads} profiles={profiles} canManage={canComms} canReviewIdeas={canReviewIdeas} canManageInbox={canManageCommunicationInbox} onPublish={() => setAnnouncementModal(true)} onSubmitIdea={() => setIdeaModal(true)} onReviewIdea={setIdeaToReview} onNewCommunication={() => setCommunicationFormOpen(true)} onRefresh={async () => { await loadViewData(); await loadNotifications() }} onNotify={notify} />}
         {!busy && view === 'Logistics' && <LogisticsLive rows={inventory} movements={inventoryMovements} purchaseRequests={purchaseRequests} profiles={profiles} events={events} canManage={canLogistics} canDecidePurchase={canDecidePurchase} onRequestPurchase={() => setPurchaseRequestModal(true)} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onAdd={() => setInventoryModal(true)} onMove={setInventoryMovementItem} />}
-        {!busy && view === 'Support' && <SupportLive rows={memberCases} profiles={profiles} canManage={hasRoles(hrCaseManagers)} onSubmit={() => setSupportModal(true)} onReview={setCaseToUpdate} />}
+        {!busy && view === 'Support' && <SupportLive rows={memberCases} profiles={profiles} canManage={hasPermission('hr.cases.manage')} onSubmit={() => setSupportModal(true)} onReview={setCaseToUpdate} />}
         {!busy && view === 'Account' && <AccountLive identity={identity} onChangePassword={() => setPasswordModal(true)} onInstall={() => setInstallGuideOpen(true)} />}
         {!busy && view === 'Tasks' && <TasksLive rows={tasks} identity={identity} canManage={hasRoles(taskOfficers)} onCreate={() => setTaskModal(true)} onStatusChange={changeTaskStatus} onDeleted={() => loadViewData()} />}
       </div>
@@ -759,13 +775,13 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     {supportModal && <MemberCaseDialog onClose={() => setSupportModal(false)} onSaved={async () => { setSupportModal(false); await loadViewData(); notify(t('Your confidential report was sent to HR.')) }} />}
     {passwordModal && <ChangePasswordDialog email={identity.email} onClose={() => setPasswordModal(false)} onSaved={() => { setPasswordModal(false); notify(t('Your password has been changed.')) }} />}
     {installGuideOpen && <InstallGuideDialog onClose={() => setInstallGuideOpen(false)} />}
-    {caseToUpdate && hasRoles(hrCaseManagers) && <UpdateMemberCaseDialog item={caseToUpdate} onClose={() => setCaseToUpdate(null)} onSaved={async () => { setCaseToUpdate(null); await loadViewData(); notify(t('HR support case updated.')) }} />}
+    {caseToUpdate && hasPermission('hr.cases.manage') && <UpdateMemberCaseDialog item={caseToUpdate} onClose={() => setCaseToUpdate(null)} onSaved={async () => { setCaseToUpdate(null); await loadViewData(); notify(t('HR support case updated.')) }} />}
     {taskModal && identity.role !== 'member' && <TaskDialog profiles={profiles} role={identity.role} roles={identity.permissions} onClose={() => setTaskModal(false)} onSaved={async () => { setTaskModal(false); await loadViewData(); notify(t('Task assigned.')) }} />}
     {attendanceReviewEvent && hasRoles(attendanceManagers) && <AttendanceReviewDialog event={attendanceReviewEvent} userId={identity.id} onClose={() => setAttendanceReviewEvent(null)} />}
     {statusMember && (canHR || hasRoles(['president', 'vice_president'])) && <MemberStatusDialog member={statusMember.member} nextStatus={statusMember.nextStatus} onClose={() => setStatusMember(null)} onSaved={async () => { setStatusMember(null); await loadViewData(); notify(t('Member status updated and logged.')) }} />}
     {editMember && (canHR || hasRoles(['president', 'vice_president'])) && <MemberProfileDialog member={editMember} onClose={() => setEditMember(null)} onSaved={async () => { setEditMember(null); await loadViewData(); notify(t('Member profile updated and logged.')) }} />}
     {roleMember && hasRoles(['president']) && <MemberRoleDialog member={roleMember.member} currentRole={memberRoles[roleMember.member.id] ?? 'member'} nextRole={roleMember.nextRole} roleCatalog={roleCatalog} onClose={() => setRoleMember(null)} onSaved={async () => { setRoleMember(null); await loadViewData(); notify(t('Club role changed and logged.')) }} />}
-    {passwordResetMember && hasRoles(memberManagers) && <MemberPasswordResetDialog member={passwordResetMember} onClose={() => setPasswordResetMember(null)} onSaved={(email, temporaryPassword) => { setPasswordResetMember(null); setTemporaryMemberCredentials({ email, password: temporaryPassword }); notify(t('Temporary password created. It is shown once.')) }} />}
+    {passwordResetMember && hasPermission('members.account.manage') && <MemberPasswordResetDialog member={passwordResetMember} onClose={() => setPasswordResetMember(null)} onSaved={(email, temporaryPassword) => { setPasswordResetMember(null); setTemporaryMemberCredentials({ email, password: temporaryPassword }); notify(t('Temporary password created. It is shown once.')) }} />}
     {termHandoverOpen && hasRoles(['president']) && <StartTermDialog profiles={profiles.filter((profile) => profile.status === 'active')} currentTermName={currentTermName} currentTermEndsOn={currentTermEndsOn} onClose={() => setTermHandoverOpen(false)} onSaved={() => { setTermHandoverOpen(false); window.location.reload() }} />}
     {scannerOpen && <ScannerDialog busy={scanBusy} onClose={() => setScannerOpen(false)} onToken={handleScannedToken} />}
     {notice && <div className="toast"><Check size={16} />{notice}</div>}

@@ -1,6 +1,5 @@
-import { authenticatedUser, corsPreflight, hasRole, respond, serviceClient } from '../_shared/http.ts'
+import { authenticatedUser, corsPreflight, hasPermission, respond, serviceClient } from '../_shared/http.ts'
 
-const memberManagers = ['president', 'vice_president', 'hr', 'vice_hr']
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 Deno.serve(async (request) => {
@@ -10,7 +9,7 @@ Deno.serve(async (request) => {
     const actor = await authenticatedUser(request)
     if (!actor) return respond({ error: 'Sign in required' }, 401)
     const admin = serviceClient()
-    if (!(await hasRole(admin, actor.id, memberManagers))) return respond({ error: 'Not authorized to invite members' }, 403)
+    if (!(await hasPermission(admin, actor.id, 'members.invite'))) return respond({ error: 'Not authorized to invite members' }, 403)
 
     const body = await request.json().catch(() => null) as {
       email?: string; full_name?: string; member_code?: string; phone_number?: string; study_program?: string; cohort?: string; delivery_method?: 'email' | 'manual'

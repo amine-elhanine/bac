@@ -4,7 +4,8 @@ export type LiveEvent = {
   cancellation_reason: string | null; attendance_sessions?: { id: string }[]
 }
 export type Profile = { id: string; member_code: string; full_name: string; email: string | null; phone_number: string | null; study_program: string | null; cohort: string | null; status: string }
-export type ClubRoleDefinition = { role_key: string; display_name: string; permission_roles: string[]; is_custom: boolean }
+export type ClubRoleDefinition = { role_key: string; display_name: string; permission_roles: string[]; permissions: string[]; is_custom: boolean }
+export type ClubPermissionDefinition = { permission_key: string; module_name: string; display_name: string; description: string; built_in_roles: string[] }
 export type ProfileHistory = { id: string; summary: string; reason: string; changed_by: string; actor_name: string; created_at: string }
 export type MoneyEntry = {
   id: string; transaction_type: string; amount_minor: number; direction: string; currency: string
@@ -60,4 +61,4 @@ export type MemberAttendance = {
   id: string; status: string; source: string; checked_in_at: string | null; correction_reason: string | null
   attendance_sessions: { events: { title: string; starts_at: string } }
 }
-export type LiveView = 'Overview' | 'Members' | 'Attendance' | 'Finance' | 'Points' | 'Calendar' | 'Tasks' | 'Communications' | 'Logistics' | 'Support' | 'Account'
+export type LiveView = 'Overview' | 'Members' | 'Attendance' | 'Finance' | 'Points' | 'Calendar' | 'Tasks' | 'Communications' | 'Logistics' | 'Support' | 'Roles & Permissions' | 'Account'
