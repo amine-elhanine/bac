@@ -77,3 +77,11 @@
 .button-danger:hover{background:#8a332a;border-color:#8a332a}
 :root[data-theme="dark"] .button-danger{background:#7e3228;border-color:#8f4438}
 :root[data-theme="dark"] .button-danger:hover{background:#6c2a22}
+
+/* ─── Conversation dialog sizing ────────────────────────────────────────────
+   The closure-note input + two action buttons overflow the default modal
+   width with French labels: give conversations a wider modal and let the
+   action row wrap instead of clipping. */
+.live-modal:has(.communication-thread-history){width:min(560px,100%)}
+.modal-actions{flex-wrap:wrap}
+.communication-close-note{min-width:0;flex:1 1 170px}

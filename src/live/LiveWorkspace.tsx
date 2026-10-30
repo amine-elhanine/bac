@@ -334,6 +334,12 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
           const profileIds = new Set<string>()
           if (canReviewIdeas) for (const idea of (ideaRows ?? [])) profileIds.add(idea.submitted_by)
           if (canManageCommunicationInbox) for (const thread of mappedThreads) { profileIds.add(thread.member_id); for (const message of thread.messages) profileIds.add(message.sender_id) }
+          if (canManageCommunicationInbox) {
+            // Managers need the full active roster to start new conversations.
+            const { data: roster, error: rosterError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').eq('status', 'active').order('full_name').limit(500)
+            if (rosterError) throw rosterError
+            for (const member of (roster ?? []) as Profile[]) profileIds.add(member.id)
+          }
           if (profileIds.size) {
             const { data: authors, error: authorError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').in('id', [...profileIds])
             if (authorError) throw authorError
