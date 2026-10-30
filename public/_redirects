@@ -1,3 +1,0 @@
-# SPA fallback: every path is served by index.html so a reload or a shared
-# link opens the workspace routed to that page.
-/*    /index.html   200
