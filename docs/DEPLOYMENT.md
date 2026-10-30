@@ -71,6 +71,8 @@ Cloudflare's dashboard may offer the newer **Workers** flow (Git-connected Worke
 - The SPA fallback comes from `wrangler.jsonc` (`assets.not_found_handling: "single-page-application"`), not from `public/_redirects`. A `_redirects` file must NOT be present — the Workers asset pipeline rejects `/* /index.html 200` as an infinite loop.
 - Build-time variables (the two `VITE_` values) are set in Worker → Settings → Variables and Secrets, and are read during the build.
 
+**Never use “Retry deployment” to pick up a fix.** Workers Builds retries the same commit with its cached build output, so a failed deployment keeps replaying the broken bundle even after `main` moves on. Trigger a build from the new commit instead (push again, or use “Deploy latest commit”). If the Git build stays stuck, deploy from the `deploy.yml` GitHub Actions workflow, which builds the exact pushed commit and needs the repository secrets `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `VITE_SUPABASE_URL`, and `VITE_SUPABASE_ANON_KEY`.
+
 ## 3. Cloudflare Pages Free
 
 1. Push the private repository to GitHub Free.
