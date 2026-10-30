@@ -4,6 +4,7 @@ export type LiveEvent = {
   cancellation_reason: string | null; attendance_sessions?: { id: string }[]
 }
 export type Profile = { id: string; member_code: string; full_name: string; email: string | null; phone_number: string | null; study_program: string | null; cohort: string | null; status: string }
+export type ClubRoleDefinition = { role_key: string; display_name: string; permission_roles: string[]; is_custom: boolean }
 export type ProfileHistory = { id: string; summary: string; reason: string; changed_by: string; actor_name: string; created_at: string }
 export type MoneyEntry = {
   id: string; transaction_type: string; amount_minor: number; direction: string; currency: string

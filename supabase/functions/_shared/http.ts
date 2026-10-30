@@ -47,15 +47,16 @@ export async function hasRole(
 
   const { data, error } = await admin
     .from('role_assignments')
-    .select('id, club_terms!inner(is_current)')
+    .select('id,role,club_roles!role_assignments_role_fkey(permission_roles), club_terms!inner(is_current)')
     .eq('member_id', userId)
-    .in('role', roles)
     .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
     .lte('starts_at', new Date().toISOString())
     .eq('club_terms.is_current', true)
-    .limit(1)
   if (error) throw new Error('Unable to verify club role')
-  return Boolean(data?.length)
+  return Boolean(data?.some((assignment) => {
+    const customRole = assignment.club_roles as unknown as { permission_roles?: string[] } | null
+    return roles.includes(assignment.role) || (customRole?.permission_roles ?? []).some((permission) => roles.includes(permission))
+  }))
 }
 
 export async function sha256Hex(value: string) {

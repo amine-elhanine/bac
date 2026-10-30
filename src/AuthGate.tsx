@@ -7,7 +7,7 @@ import { LANGUAGES, I18nProvider, useI18n, type Language } from './i18n'
 import { backendReady, supabase } from './lib/supabase'
 import { ROLE_PRECEDENCE } from './lib/roles'
 
-export type Identity = { id: string; name: string; email: string; role: string; status: string; mustChangePassword: boolean }
+export type Identity = { id: string; name: string; email: string; role: string; roleName: string; permissions: string[]; status: string; mustChangePassword: boolean }
 
 // The demo workspace ships only when a member without a configured backend
 // opens the app; the chunk is not part of the signed-in bundle.
@@ -54,14 +54,17 @@ function AuthGateInner() {
       if (profileError) throw profileError
       if (!profile) throw new Error(t('Your account is signed in, but its BAC member profile has not been set up. Contact HR.'))
       const { data: assignments, error: rolesError } = await client
-        .from('role_assignments').select('role,club_terms!inner(is_current)')
+        .from('role_assignments').select('role,club_roles!role_assignments_role_fkey(display_name,permission_roles,is_custom),club_terms!inner(is_current)')
         .eq('member_id', sessionUserId).eq('club_terms.is_current', true)
         .lte('starts_at', new Date().toISOString())
         .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
       if (rolesError) throw rolesError
-      const assignedRoles = (assignments ?? []).map((assignment) => assignment.role as string)
-      const role = ROLE_PRECEDENCE.find((candidate) => assignedRoles.includes(candidate)) ?? 'member'
-      if (alive) setIdentity({ id: profile.id, name: profile.full_name, email: profile.email ?? session?.user?.email ?? '', role, status: profile.status, mustChangePassword: profile.must_change_password })
+      const assignment = (assignments ?? []).find((row) => row.role !== 'member')
+      const roleMeta = assignment?.club_roles as unknown as { display_name?: string; permission_roles?: string[]; is_custom?: boolean } | null
+      const permissions = [...new Set(assignment ? [assignment.role as string, ...(roleMeta?.permission_roles ?? [])] : ['member'])]
+      const role = ROLE_PRECEDENCE.find((candidate) => permissions.includes(candidate)) ?? 'member'
+      const roleName = roleMeta?.is_custom && roleMeta.display_name ? roleMeta.display_name : role
+      if (alive) setIdentity({ id: profile.id, name: profile.full_name, email: profile.email ?? session?.user?.email ?? '', role, roleName, permissions, status: profile.status, mustChangePassword: profile.must_change_password })
     })().catch((error: unknown) => {
       if (alive) setIdentityError(error instanceof Error ? error.message : t('Could not load your BAC account.'))
     }).finally(() => { if (alive) setLoadingIdentity(false) })

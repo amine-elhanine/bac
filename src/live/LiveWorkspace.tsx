@@ -29,7 +29,7 @@ import { TaskDialog, TasksLive } from './TasksView'
 import { MemberCaseDialog, SupportLive, UpdateMemberCaseDialog } from './SupportView'
 import { AccountLive, ChangePasswordDialog } from './AccountView'
 import { ScannerDialog } from './ScannerDialog'
-import type { Announcement, ClubNotification, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
+import type { Announcement, ClubNotification, ClubRoleDefinition, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
 
 const modules: { view: LiveView; label: string; icon: typeof CalendarDays; roles: string[] }[] = [
   { view: 'Overview', label: 'Overview', icon: CalendarDays, roles: ['all'] },
@@ -92,17 +92,17 @@ function communicationsSectionFromLocation(): CommunicationsSection {
 }
 
 /** The sidebar only shows modules the role can open; enforce that for URLs too. */
-function normalizedView(candidate: LiveView, role: string): LiveView {
+function normalizedView(candidate: LiveView, roles: string[]): LiveView {
   if (candidate === 'Account') return candidate
   const module = modules.find((item) => item.view === candidate)
   if (!module) return 'Overview'
-  return module.roles.includes('all') || module.roles.includes(role) ? candidate : 'Overview'
+  return module.roles.includes('all') || module.roles.some((role) => roles.includes(role)) ? candidate : 'Overview'
 }
 
 export default function LiveWorkspace({ identity, onSignOut }: { identity: Identity; onSignOut: () => void }) {
   const { t, language } = useI18n()
   const [view, setViewState] = useState<LiveView>(() => {
-    const fromUrl = normalizedView(viewFromLocation(), identity.role)
+    const fromUrl = normalizedView(viewFromLocation(), identity.permissions)
     // Keep a deep Communications link (/communications/news) when it is allowed.
     window.history.replaceState({}, '', fromUrl === 'Communications'
       ? communicationsSectionPaths[communicationsSectionFromLocation()]
@@ -113,7 +113,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
 
   /** Every navigation pushes its path so the address shows the open page. */
   function setView(nextView: LiveView) {
-    const next = normalizedView(nextView, identity.role)
+    const next = normalizedView(nextView, identity.permissions)
     setViewState(next)
     const path = next === 'Communications' ? communicationsSectionPaths[communicationsSection] : viewPaths[next]
     if (locationPath() !== path) window.history.pushState({}, '', path)
@@ -131,6 +131,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   const [events, setEvents] = useState<LiveEvent[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [memberRoles, setMemberRoles] = useState<Record<string, string>>({})
+  const [roleCatalog, setRoleCatalog] = useState<ClubRoleDefinition[]>([])
   const [entries, setEntries] = useState<MoneyEntry[]>([])
   const [periodClosures, setPeriodClosures] = useState<FinancialPeriodClosure[]>([])
   const [financialReconciliations, setFinancialReconciliations] = useState<FinancialReconciliation[]>([])
@@ -201,16 +202,17 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   // Date, time, and money formatters follow the active interface language.
   useEffect(() => { setDateLocale(localeFor(language)) }, [language])
 
-  const canEvents = eventManagers.includes(identity.role)
-  const canViewFinance = financeViewers.includes(identity.role)
-  const canFinance = financeManagers.includes(identity.role)
-  const canDecidePurchase = financeDeciders.includes(identity.role)
-  const canHR = hrManagers.includes(identity.role)
-  const canComms = commsManagers.includes(identity.role)
-  const canManageCommunicationInbox = communicationInboxManagers.includes(identity.role)
-  const canReviewIdeas = ideaReviewManagers.includes(identity.role)
-  const canLogistics = logisticsManagers.includes(identity.role)
-  const visibleModules = modules.filter((item) => item.roles.includes('all') || item.roles.includes(identity.role))
+  const hasRoles = useCallback((roles: string[]) => roles.some((role) => identity.permissions.includes(role)), [identity.permissions])
+  const canEvents = hasRoles(eventManagers)
+  const canViewFinance = hasRoles(financeViewers)
+  const canFinance = hasRoles(financeManagers)
+  const canDecidePurchase = hasRoles(financeDeciders)
+  const canHR = hasRoles(hrManagers)
+  const canComms = hasRoles(commsManagers)
+  const canManageCommunicationInbox = hasRoles(communicationInboxManagers)
+  const canReviewIdeas = hasRoles(ideaReviewManagers)
+  const canLogistics = hasRoles(logisticsManagers)
+  const visibleModules = modules.filter((item) => item.roles.includes('all') || hasRoles(item.roles))
 
   const notify = useCallback((message: string) => {
     setNotice(message)
@@ -241,7 +243,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
       if (view === 'Overview' || view === 'Calendar' || view === 'Attendance' || view === 'Points' || view === 'Finance') await loadEvents()
       if (view === 'Overview') {
         const [{ count: taskCount, error: taskError }, { count: unreadCount, error: unreadError }] = await Promise.all([
-          identity.role === 'member'
+          !hasRoles(taskOfficers)
             ? supabase.from('task_assignments').select('task_id', { count: 'exact', head: true }).eq('member_id', identity.id).in('status', ['todo', 'in_progress', 'blocked'])
             : supabase.from('tasks').select('id', { count: 'exact', head: true }).in('status', ['todo', 'in_progress', 'blocked']),
           supabase.from('notifications').select('id', { count: 'exact', head: true }).is('read_at', null),
@@ -250,7 +252,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         if (unreadError) throw unreadError
         const next: DashboardMetrics = { openTasks: taskCount ?? 0, unreadNotifications: unreadCount ?? 0, activeMembers: null, balanceMinor: null, inventoryItems: null, attendanceRate: null, attendanceDetail: null }
         let activeRosterIds: string[] = []
-        if (['president', 'vice_president', 'hr', 'vice_hr'].includes(identity.role)) {
+        if (hasRoles(['president', 'vice_president', 'hr', 'vice_hr'])) {
           const now = new Date().toISOString()
           const [{ data: profileRows, error: membersError }, { data: assignmentRows, error: assignmentsError }] = await Promise.all([
             supabase.from('member_profiles').select('id').eq('status', 'active'),
@@ -267,7 +269,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
           if (balanceError) throw balanceError
           next.balanceMinor = Number(balanceRows?.[0]?.balance_minor ?? 0)
         }
-        if (attendanceManagers.includes(identity.role)) {
+        if (hasRoles(attendanceManagers)) {
           const { data: candidateEvents, error: candidateEventsError } = await supabase.from('events')
             .select('id,title,starts_at,status').in('status', ['published', 'in_progress', 'completed'])
             .order('starts_at', { ascending: false }).limit(300)
@@ -339,6 +341,9 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         const { data, error: queryError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').order('full_name').limit(250)
         if (queryError) throw queryError
         setProfiles((data ?? []) as Profile[])
+        const { data: roleRows, error: catalogError } = await supabase.from('club_roles').select('role_key,display_name,permission_roles,is_custom').order('display_name')
+        if (catalogError) throw catalogError
+        setRoleCatalog((roleRows ?? []) as ClubRoleDefinition[])
         const now = new Date().toISOString()
         const { data: assignments, error: roleError } = await supabase.from('role_assignments').select('member_id,role,club_terms!inner(is_current)').eq('club_terms.is_current', true).lte('starts_at', now).or(`ends_at.is.null,ends_at.gt.${now}`)
         if (roleError) throw roleError
@@ -433,7 +438,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         const { data, error: queryError } = await supabase.from('member_cases').select('id,submitted_by,title,description,people_involved,status,response,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
         if (queryError) throw queryError
         setMemberCases((data ?? []) as MemberCase[])
-        if (hrCaseManagers.includes(identity.role)) {
+        if (hasRoles(hrCaseManagers)) {
           const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').order('full_name').limit(250)
           if (memberError) throw memberError
           setProfiles((memberRows ?? []) as Profile[])
@@ -466,7 +471,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         const { data, error: queryError } = await supabase.from('tasks').select('id,title,description,team,priority,status,due_at,created_by,task_assignments(member_id,status)').order('due_at', { ascending: true, nullsFirst: false }).limit(100)
         if (queryError) throw queryError
         setTasks((data ?? []) as ClubTask[])
-        if (taskOfficers.includes(identity.role)) {
+        if (hasRoles(taskOfficers)) {
           const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').eq('status', 'active').order('full_name').limit(250)
           if (memberError) throw memberError
           setProfiles((memberRows ?? []) as Profile[])
@@ -476,7 +481,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t('Could not load this workspace. Check your connection and access.'))
     } finally { viewLoadInFlight.current -= 1; if (showSpinner) setBusy(false) }
-  }, [view, identity.role, identity.id, canHR, canViewFinance, canLogistics, canReviewIdeas, canManageCommunicationInbox, loadEvents, t])
+  }, [view, identity.id, canHR, canViewFinance, canLogistics, canReviewIdeas, canManageCommunicationInbox, loadEvents, hasRoles, t])
 
   async function recordInventoryMovement(input: { itemId: string; movementType: string; quantity: number; memberId: string | null; eventId: string | null; reason: string }) {
     if (!supabase) return
@@ -552,12 +557,12 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   // Browser back/forward moves between the workspace pages and Communications tabs.
   useEffect(() => {
     const onPop = () => {
-      setViewState(normalizedView(viewFromLocation(), identity.role))
+      setViewState(normalizedView(viewFromLocation(), identity.permissions))
       setCommunicationsSection(communicationsSectionFromLocation())
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
-  }, [identity.role])
+  }, [identity.permissions])
 
   useEffect(() => {
     if (!supabase) return
@@ -695,7 +700,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   }
   const viewSubtitles: Record<LiveView, string> = {
     Overview: t('Your live club workspace.'),
-    Members: `${t('Member access and roster management')} · ${t(ROLE_LABELS[identity.role] ?? 'Member')}`,
+    Members: `${t('Member access and roster management')} · ${t(ROLE_LABELS[identity.roleName] ?? identity.roleName)}`,
     Attendance: t('Record presence at gatherings and events.'),
     Finance: t('Contributions and club purchases, recorded with care.'),
     Points: t('A clear, reasoned history of club participation points.'),
@@ -714,7 +719,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   }
 
   return <div className="live-shell">
-    <aside className={`live-sidebar${mobileNavOpen ? ' live-sidebar-open' : ''}`}><div className="brand-lockup"><img src="/bac-logo.png" alt={t('Biologists in Action Club')} className="brand-mark brand-logo-image" /><div><BrandWordmark /><small>{t('CLUB PLATFORM')}</small></div></div><div className="club-switch"><div className="club-name"><strong>{t('Biologists in Action')}</strong><small>FST Settat · {currentTermName}</small></div></div><div className="nav-caption">{t('YOUR CLUB')}</div><nav>{visibleModules.map(({ view: destination, label, icon: Icon }) => <button key={destination} className={`nav-item ${view === destination ? 'selected' : ''}`} onClick={() => { setView(destination); setSearch(''); setMobileNavOpen(false) }}><Icon size={17} /><span>{t(label)}</span></button>)}</nav><div className="live-profile"><button className={`profile-open${view === 'Account' ? ' active' : ''}`} onClick={() => { setView('Account'); setMobileNavOpen(false) }} aria-label={t('My account')}><div className="avatar avatar-dark">{initials(identity.name)}</div><div><strong>{identity.name}</strong><small>{t(ROLE_LABELS[identity.role] ?? 'Member')}</small></div></button><button className="icon-button" onClick={onSignOut} aria-label={t('Sign out')}><LogOut size={16} /></button></div></aside>
+    <aside className={`live-sidebar${mobileNavOpen ? ' live-sidebar-open' : ''}`}><div className="brand-lockup"><img src="/bac-logo.png" alt={t('Biologists in Action Club')} className="brand-mark brand-logo-image" /><div><BrandWordmark /><small>{t('CLUB PLATFORM')}</small></div></div><div className="club-switch"><div className="club-name"><strong>{t('Biologists in Action')}</strong><small>FST Settat · {currentTermName}</small></div></div><div className="nav-caption">{t('YOUR CLUB')}</div><nav>{visibleModules.map(({ view: destination, label, icon: Icon }) => <button key={destination} className={`nav-item ${view === destination ? 'selected' : ''}`} onClick={() => { setView(destination); setSearch(''); setMobileNavOpen(false) }}><Icon size={17} /><span>{t(label)}</span></button>)}</nav><div className="live-profile"><button className={`profile-open${view === 'Account' ? ' active' : ''}`} onClick={() => { setView('Account'); setMobileNavOpen(false) }} aria-label={t('My account')}><div className="avatar avatar-dark">{initials(identity.name)}</div><div><strong>{identity.name}</strong><small>{t(ROLE_LABELS[identity.roleName] ?? identity.roleName)}</small></div></button><button className="icon-button" onClick={onSignOut} aria-label={t('Sign out')}><LogOut size={16} /></button></div></aside>
     {mobileNavOpen && <button className="scrim" aria-label={t('Close menu')} onClick={() => setMobileNavOpen(false)} />}
     <main className="live-main"><header className="live-topbar"><button className="icon-button mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label={t('Open menu')}><Menu size={20} /></button><div><span>{t('Club')}</span><ChevronRight size={13} /><strong>{viewTitles[view]}</strong></div><div className="live-top-actions"><span className={`connected-state ${networkOnline ? '' : 'network-offline'}`} role="status"><i /> {networkOnline ? t('Network online') : t('Offline')}</span><div className="notification-anchor"><button className="icon-button notification-trigger" onClick={() => { setNotificationsOpen((open) => !open); if (!notificationsOpen) void loadNotifications() }} aria-label={`${t('Notifications')}${notifications.some((item) => !item.read_at) ? `, ${t('unread items')}` : ''}`}><Bell size={18} />{notifications.some((item) => !item.read_at) && <i />}</button>{notificationsOpen && <div className="notification-popover"><div className="notification-popover-head"><strong>{t('Notifications')}</strong><span>{t('{count} unread', { count: notifications.filter((item) => !item.read_at).length })}</span>{notifications.some((item) => !item.read_at) && <button type="button" className="notification-mark-all" onClick={() => void markAllNotificationsRead()}>{t('Mark all read')}</button>}</div>{notifications.length ? notifications.map((item) => <button className={`notification-item ${item.read_at ? '' : 'notification-unread'}`} key={item.id} onClick={() => void openNotification(item)}><strong>{item.title}</strong><span>{item.body}</span><small>{clubDateTime(item.created_at)}</small></button>) : <p className="notification-empty">{t('You’re all caught up.')}</p>}</div>}</div></div></header>
       <div className="live-content"><div className="live-title-row"><div><span className="eyebrow">{t('BIOLOGISTS IN ACTION · FST SETTAT')}</span><h1>{view === 'Overview' ? `${t('Welcome, {name}', { name: identity.name.split(' ')[0] })}` : viewTitles[view]}</h1><p>{view === 'Communications' ? communicationsSubtitles[communicationsSection] : viewSubtitles[view]}</p></div>{view === 'Account' && <button className="button button-outline" onClick={() => setView('Overview')}><ArrowLeft size={15} /> {t('Back')}</button>}</div>
@@ -723,15 +728,15 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         {busy && <div className="live-loading">{t('Loading club data…')}</div>}
         {!busy && view === 'Overview' && <OverviewLive identity={identity} upcoming={upcomingEvents} metrics={dashboardMetrics} onNavigate={setView} onOpenNotifications={() => { setNotificationsOpen(true); void loadNotifications() }} />}
         {!busy && view === 'Calendar' && <CalendarLive events={events} canManage={canEvents} onCreate={() => { setEventToEdit(null); setEventModal(true) }} onEdit={(event) => { setEventToEdit(event); setEventModal(true) }} onCancel={setEventToCancel} onComplete={setEventToComplete} />}
-        {!busy && view === 'Members' && <MembersLive profiles={filteredProfiles} roles={memberRoles} search={search} setSearch={setSearch} canManage={canHR || identity.role === 'president' || identity.role === 'vice_president'} canManageRoles={identity.role === 'president'} onInvite={() => setInviteMemberModal(true)} onStartNewTerm={() => setTermHandoverOpen(true)} onChangeStatus={(member, nextStatus) => setStatusMember({ member, nextStatus })} onEdit={setEditMember} onManageRole={(member, nextRole) => setRoleMember({ member, nextRole })} onResetPassword={setPasswordResetMember} onDeleted={() => loadViewData()} />}
-        {!busy && view === 'Attendance' && <AttendanceLive events={events} role={identity.role} memberId={identity.id} session={activeSession} token={qrToken} onOpen={startAttendance} onClose={closeAttendance} onScan={() => setScannerOpen(true)} onReview={setAttendanceReviewEvent} />}
+        {!busy && view === 'Members' && <MembersLive profiles={filteredProfiles} roles={memberRoles} roleCatalog={roleCatalog} search={search} setSearch={setSearch} canManage={canHR || hasRoles(['president', 'vice_president'])} canManageRoles={hasRoles(['president'])} onInvite={() => setInviteMemberModal(true)} onStartNewTerm={() => setTermHandoverOpen(true)} onChangeStatus={(member, nextStatus) => setStatusMember({ member, nextStatus })} onEdit={setEditMember} onManageRole={(member, nextRole) => setRoleMember({ member, nextRole })} onResetPassword={setPasswordResetMember} onDeleted={() => loadViewData()} onRoleCreated={() => loadViewData()} />}
+        {!busy && view === 'Attendance' && <AttendanceLive events={events} role={identity.role} roles={identity.permissions} memberId={identity.id} session={activeSession} token={qrToken} onOpen={startAttendance} onClose={closeAttendance} onScan={() => setScannerOpen(true)} onReview={setAttendanceReviewEvent} />}
         {!busy && view === 'Finance' && <FinanceLive entries={entries} balanceMinor={financeBalanceMinor} reconciliation={reconciliation} closures={periodClosures} financialReconciliations={financialReconciliations} purchaseRequests={purchaseRequests} events={events} profiles={profiles} canManage={canViewFinance} canRecord={canFinance} canDecidePurchase={canDecidePurchase} exporting={exportBusy} onExport={() => void exportFinanceLedger()} onOpenReceipt={setReceiptPreviewPath} onCreate={() => { setPurchaseRequestToPay(null); setMoneyModal(true) }} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onPayPurchase={(request) => { setPurchaseRequestToPay(request); setMoneyModal(true) }} onReverse={setReversalEntry} onGenerate={generatePaymentExpectations} onContributionChanged={async () => { await loadViewData(); notify(t('Finance records refreshed.')) }} onPeriodClosed={async () => { await loadViewData(); notify(t('Financial period closed and recorded in the audit log.')) }} onReconciled={async () => { await loadViewData(); await loadNotifications(); notify(t('Financial reconciliation recorded in the audit log.')) }} />}
-        {!busy && view === 'Points' && <PointsLive entries={pointEntries} balances={pointBalances} profiles={profiles} memberId={identity.id} canViewAll={pointsViewers.includes(identity.role)} canManage={canHR} onAdd={() => setPointsModal(true)} />}
+        {!busy && view === 'Points' && <PointsLive entries={pointEntries} balances={pointBalances} profiles={profiles} memberId={identity.id} canViewAll={hasRoles(pointsViewers)} canManage={canHR} onAdd={() => setPointsModal(true)} />}
         {!busy && view === 'Communications' && <CommunicationsLive section={communicationsSection} onSectionChange={openCommunicationsSection} rows={announcements} ideas={ideas} ideaReviews={ideaReviews} threads={communicationThreads} profiles={profiles} canManage={canComms} canReviewIdeas={canReviewIdeas} canManageInbox={canManageCommunicationInbox} onPublish={() => setAnnouncementModal(true)} onSubmitIdea={() => setIdeaModal(true)} onReviewIdea={setIdeaToReview} onNewCommunication={() => setCommunicationFormOpen(true)} onRefresh={async () => { await loadViewData(); await loadNotifications() }} onNotify={notify} />}
         {!busy && view === 'Logistics' && <LogisticsLive rows={inventory} movements={inventoryMovements} purchaseRequests={purchaseRequests} profiles={profiles} events={events} canManage={canLogistics} canDecidePurchase={canDecidePurchase} onRequestPurchase={() => setPurchaseRequestModal(true)} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onAdd={() => setInventoryModal(true)} onMove={setInventoryMovementItem} />}
-        {!busy && view === 'Support' && <SupportLive rows={memberCases} profiles={profiles} canManage={hrCaseManagers.includes(identity.role)} onSubmit={() => setSupportModal(true)} onReview={setCaseToUpdate} />}
+        {!busy && view === 'Support' && <SupportLive rows={memberCases} profiles={profiles} canManage={hasRoles(hrCaseManagers)} onSubmit={() => setSupportModal(true)} onReview={setCaseToUpdate} />}
         {!busy && view === 'Account' && <AccountLive identity={identity} onChangePassword={() => setPasswordModal(true)} onInstall={() => setInstallGuideOpen(true)} />}
-        {!busy && view === 'Tasks' && <TasksLive rows={tasks} identity={identity} canManage={identity.role !== 'member'} onCreate={() => setTaskModal(true)} onStatusChange={changeTaskStatus} onDeleted={() => loadViewData()} />}
+        {!busy && view === 'Tasks' && <TasksLive rows={tasks} identity={identity} canManage={hasRoles(taskOfficers)} onCreate={() => setTaskModal(true)} onStatusChange={changeTaskStatus} onDeleted={() => loadViewData()} />}
       </div>
     </main>
     {eventModal && <EventDialog event={eventToEdit} canSetContribution={canFinance} onClose={() => { setEventModal(false); setEventToEdit(null) }} onSaved={async () => { const wasEdit = Boolean(eventToEdit); setEventModal(false); setEventToEdit(null); await loadEvents(); setView('Calendar'); notify(wasEdit ? t('Event details updated.') : t('Event published to the club calendar.')) }} />}
@@ -749,19 +754,19 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     {communicationFormOpen && canManageCommunicationInbox && <NewCommunicationDialog userId={identity.id} profiles={profiles} canManage={canManageCommunicationInbox} onClose={() => setCommunicationFormOpen(false)} onSaved={async () => { setCommunicationFormOpen(false); await loadViewData(); await loadNotifications(); notify(t('Message sent.')) }} />}
     {inventoryModal && canLogistics && <InventoryDialog userId={identity.id} onClose={() => setInventoryModal(false)} onSaved={async (itemId, count) => { setInventoryModal(false); if (count > 0) { try { await recordInventoryMovement({ itemId, movementType: 'received', quantity: count, memberId: null, eventId: null, reason: 'Initial stock' }) } catch (cause) { setError(cause instanceof Error ? cause.message : t('Initial stock could not be recorded. The item remains at zero stock.')); await loadViewData() } } else { await loadViewData(); notify(t('Item added to club inventory.')) } }} />}
     {inventoryMovementItem && canLogistics && <InventoryMovementDialog item={inventoryMovementItem} profiles={profiles} events={events} onClose={() => setInventoryMovementItem(null)} onSave={recordInventoryMovement} />}
-    {inviteMemberModal && (canHR || identity.role === 'president' || identity.role === 'vice_president') && <InviteMemberDialog onClose={() => setInviteMemberModal(false)} onSaved={async (memberCode, email, temporaryPassword) => { setInviteMemberModal(false); if (temporaryPassword) setTemporaryMemberCredentials({ email, password: temporaryPassword }); await loadViewData(); notify(t('Member {code} activated for in-person onboarding.', { code: memberCode })) }} />}
+    {inviteMemberModal && (canHR || hasRoles(['president', 'vice_president'])) && <InviteMemberDialog onClose={() => setInviteMemberModal(false)} onSaved={async (memberCode, email, temporaryPassword) => { setInviteMemberModal(false); if (temporaryPassword) setTemporaryMemberCredentials({ email, password: temporaryPassword }); await loadViewData(); notify(t('Member {code} activated for in-person onboarding.', { code: memberCode })) }} />}
     {temporaryMemberCredentials && <TemporaryMemberPasswordDialog credentials={temporaryMemberCredentials} onClose={() => setTemporaryMemberCredentials(null)} />}
     {supportModal && <MemberCaseDialog onClose={() => setSupportModal(false)} onSaved={async () => { setSupportModal(false); await loadViewData(); notify(t('Your confidential report was sent to HR.')) }} />}
     {passwordModal && <ChangePasswordDialog email={identity.email} onClose={() => setPasswordModal(false)} onSaved={() => { setPasswordModal(false); notify(t('Your password has been changed.')) }} />}
     {installGuideOpen && <InstallGuideDialog onClose={() => setInstallGuideOpen(false)} />}
-    {caseToUpdate && hrCaseManagers.includes(identity.role) && <UpdateMemberCaseDialog item={caseToUpdate} onClose={() => setCaseToUpdate(null)} onSaved={async () => { setCaseToUpdate(null); await loadViewData(); notify(t('HR support case updated.')) }} />}
-    {taskModal && identity.role !== 'member' && <TaskDialog profiles={profiles} role={identity.role} onClose={() => setTaskModal(false)} onSaved={async () => { setTaskModal(false); await loadViewData(); notify(t('Task assigned.')) }} />}
-    {attendanceReviewEvent && attendanceManagers.includes(identity.role) && <AttendanceReviewDialog event={attendanceReviewEvent} userId={identity.id} onClose={() => setAttendanceReviewEvent(null)} />}
-    {statusMember && (canHR || identity.role === 'president' || identity.role === 'vice_president') && <MemberStatusDialog member={statusMember.member} nextStatus={statusMember.nextStatus} onClose={() => setStatusMember(null)} onSaved={async () => { setStatusMember(null); await loadViewData(); notify(t('Member status updated and logged.')) }} />}
-    {editMember && (canHR || identity.role === 'president' || identity.role === 'vice_president') && <MemberProfileDialog member={editMember} onClose={() => setEditMember(null)} onSaved={async () => { setEditMember(null); await loadViewData(); notify(t('Member profile updated and logged.')) }} />}
-    {roleMember && identity.role === 'president' && <MemberRoleDialog member={roleMember.member} currentRole={memberRoles[roleMember.member.id] ?? 'member'} nextRole={roleMember.nextRole} onClose={() => setRoleMember(null)} onSaved={async () => { setRoleMember(null); await loadViewData(); notify(t('Club role changed and logged.')) }} />}
-    {passwordResetMember && memberManagers.includes(identity.role) && <MemberPasswordResetDialog member={passwordResetMember} onClose={() => setPasswordResetMember(null)} onSaved={(email, temporaryPassword) => { setPasswordResetMember(null); setTemporaryMemberCredentials({ email, password: temporaryPassword }); notify(t('Temporary password created. It is shown once.')) }} />}
-    {termHandoverOpen && identity.role === 'president' && <StartTermDialog profiles={profiles.filter((profile) => profile.status === 'active')} currentTermName={currentTermName} currentTermEndsOn={currentTermEndsOn} onClose={() => setTermHandoverOpen(false)} onSaved={() => { setTermHandoverOpen(false); window.location.reload() }} />}
+    {caseToUpdate && hasRoles(hrCaseManagers) && <UpdateMemberCaseDialog item={caseToUpdate} onClose={() => setCaseToUpdate(null)} onSaved={async () => { setCaseToUpdate(null); await loadViewData(); notify(t('HR support case updated.')) }} />}
+    {taskModal && identity.role !== 'member' && <TaskDialog profiles={profiles} role={identity.role} roles={identity.permissions} onClose={() => setTaskModal(false)} onSaved={async () => { setTaskModal(false); await loadViewData(); notify(t('Task assigned.')) }} />}
+    {attendanceReviewEvent && hasRoles(attendanceManagers) && <AttendanceReviewDialog event={attendanceReviewEvent} userId={identity.id} onClose={() => setAttendanceReviewEvent(null)} />}
+    {statusMember && (canHR || hasRoles(['president', 'vice_president'])) && <MemberStatusDialog member={statusMember.member} nextStatus={statusMember.nextStatus} onClose={() => setStatusMember(null)} onSaved={async () => { setStatusMember(null); await loadViewData(); notify(t('Member status updated and logged.')) }} />}
+    {editMember && (canHR || hasRoles(['president', 'vice_president'])) && <MemberProfileDialog member={editMember} onClose={() => setEditMember(null)} onSaved={async () => { setEditMember(null); await loadViewData(); notify(t('Member profile updated and logged.')) }} />}
+    {roleMember && hasRoles(['president']) && <MemberRoleDialog member={roleMember.member} currentRole={memberRoles[roleMember.member.id] ?? 'member'} nextRole={roleMember.nextRole} roleCatalog={roleCatalog} onClose={() => setRoleMember(null)} onSaved={async () => { setRoleMember(null); await loadViewData(); notify(t('Club role changed and logged.')) }} />}
+    {passwordResetMember && hasRoles(memberManagers) && <MemberPasswordResetDialog member={passwordResetMember} onClose={() => setPasswordResetMember(null)} onSaved={(email, temporaryPassword) => { setPasswordResetMember(null); setTemporaryMemberCredentials({ email, password: temporaryPassword }); notify(t('Temporary password created. It is shown once.')) }} />}
+    {termHandoverOpen && hasRoles(['president']) && <StartTermDialog profiles={profiles.filter((profile) => profile.status === 'active')} currentTermName={currentTermName} currentTermEndsOn={currentTermEndsOn} onClose={() => setTermHandoverOpen(false)} onSaved={() => { setTermHandoverOpen(false); window.location.reload() }} />}
     {scannerOpen && <ScannerDialog busy={scanBusy} onClose={() => setScannerOpen(false)} onToken={handleScannedToken} />}
     {notice && <div className="toast"><Check size={16} />{notice}</div>}
   </div>

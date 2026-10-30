@@ -23,9 +23,9 @@ export function TasksLive({ rows, identity, canManage, onCreate, onStatusChange,
   // Leadership, the responsible team's officer, or the task's creator may
   // manage it; the database enforces the same rule for every action.
   const canManageRow = (task: ClubTask) =>
-    ['president', 'vice_president'].includes(identity.role)
+    identity.permissions.some((role) => ['president', 'vice_president'].includes(role))
     || task.created_by === identity.id
-    || (Boolean(task.team) && TEAM_FOR_ROLE[identity.role] === task.team)
+    || identity.permissions.some((role) => Boolean(task.team) && TEAM_FOR_ROLE[role] === task.team)
   const isBackwardChange = (from: string, to: string) => !(
     (from === 'todo' && ['in_progress', 'blocked', 'done'].includes(to))
     || (from === 'in_progress' && ['blocked', 'done'].includes(to))
@@ -66,10 +66,12 @@ export function TasksLive({ rows, identity, canManage, onCreate, onStatusChange,
     >{deleteError && <div className="auth-error" role="alert">{deleteError}</div>}</ConfirmDialog>}</>
 }
 
-export function TaskDialog({ profiles, role, onClose, onSaved }: { profiles: Profile[]; role: string; onClose: () => void; onSaved: () => void | Promise<void> }) {
+export function TaskDialog({ profiles, role, roles = [role], onClose, onSaved }: { profiles: Profile[]; role: string; roles?: string[]; onClose: () => void; onSaved: () => void | Promise<void> }) {
   const { t } = useI18n()
   const teamForRole: Record<string, string> = { communications_officer: 'communications', treasurer: 'treasury', vice_treasurer: 'treasury', hr: 'hr', vice_hr: 'hr', general_secretary: 'secretariat', logistics_officer: 'logistics', vice_logistics_officer: 'logistics' }
-  const allowedTeams = role === 'president' || role === 'vice_president' ? ['club', 'president', 'communications', 'treasury', 'hr', 'secretariat', 'logistics'] : [teamForRole[role] ?? 'club']
+  const allowedTeams = roles.some((assignedRole) => ['president', 'vice_president'].includes(assignedRole))
+    ? ['club', 'president', 'communications', 'treasury', 'hr', 'secretariat', 'logistics']
+    : [...new Set(['club', ...roles.map((assignedRole) => teamForRole[assignedRole]).filter((team): team is string => Boolean(team))])]
   const [title, setTitle] = useState(''); const [description, setDescription] = useState(''); const [team, setTeam] = useState(allowedTeams[0]); const [priority, setPriority] = useState('normal'); const [due, setDue] = useState(''); const [assigneeIds, setAssigneeIds] = useState<string[]>([]); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
   async function submit(formEvent: FormEvent<HTMLFormElement>) {
     formEvent.preventDefault(); if (!supabase) return

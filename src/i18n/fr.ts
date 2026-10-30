@@ -3,6 +3,20 @@
  * falls back to English at render time.
  */
 export const fr: Record<string, string> = {
+  'Manage roles': 'Gérer les rôles',
+  'Create a club role': 'Créer un rôle du club',
+  'Give the role a name and choose which existing permission groups it includes. The President role stays exclusive.': 'Nommez le rôle et choisissez les groupes d’autorisations à inclure. Le rôle de Président reste exclusif.',
+  'Role name': 'Nom du rôle',
+  'For example: Events Coordinator': 'Par exemple : Coordinateur des événements',
+  'Permission groups': 'Groupes d’autorisations',
+  'A role receives the combined access of the selected groups.': 'Le rôle cumule les accès des groupes sélectionnés.',
+  'Choose at least one permission group.': 'Choisissez au moins un groupe d’autorisations.',
+  'Enter a reason for creating this role.': 'Indiquez le motif de création de ce rôle.',
+  'A role already uses that name. Choose another name.': 'Un rôle porte déjà ce nom. Choisissez un autre nom.',
+  'Could not create this role. Check the name and permissions.': 'Impossible de créer ce rôle. Vérifiez son nom et ses autorisations.',
+  'Explain why this role is being created': 'Expliquez pourquoi ce rôle est créé',
+  'Creating role…': 'Création du rôle…',
+  'Create role': 'Créer le rôle',
   'Correct task status': 'Corriger le statut de la tâche',
   'This moves the task to an earlier status. Explain the mistake so the correction is recorded.': 'Cette action ramène la tâche à un statut antérieur. Expliquez l’erreur afin que la correction soit enregistrée.',
   'Explain what was changed by mistake': 'Expliquez ce qui a été modifié par erreur',

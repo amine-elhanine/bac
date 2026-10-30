@@ -3,6 +3,20 @@
  * strings; a missing entry falls back to English at render time.
  */
 export const ar: Record<string, string> = {
+  'Manage roles': 'إدارة الأدوار',
+  'Create a club role': 'إنشاء دور للنادي',
+  'Give the role a name and choose which existing permission groups it includes. The President role stays exclusive.': 'سمِّ الدور واختر مجموعات الصلاحيات التي يتضمنها. يظل دور الرئيس حصريًا.',
+  'Role name': 'اسم الدور',
+  'For example: Events Coordinator': 'مثال: منسق الفعاليات',
+  'Permission groups': 'مجموعات الصلاحيات',
+  'A role receives the combined access of the selected groups.': 'يحصل الدور على مجموع الصلاحيات للمجموعات المحددة.',
+  'Choose at least one permission group.': 'اختر مجموعة صلاحيات واحدة على الأقل.',
+  'Enter a reason for creating this role.': 'أدخل سبب إنشاء هذا الدور.',
+  'A role already uses that name. Choose another name.': 'يوجد دور بهذا الاسم بالفعل. اختر اسمًا آخر.',
+  'Could not create this role. Check the name and permissions.': 'تعذر إنشاء هذا الدور. تحقق من الاسم والصلاحيات.',
+  'Explain why this role is being created': 'اشرح سبب إنشاء هذا الدور',
+  'Creating role…': 'جارٍ إنشاء الدور…',
+  'Create role': 'إنشاء الدور',
   'Correct task status': 'تصحيح حالة المهمة',
   'This moves the task to an earlier status. Explain the mistake so the correction is recorded.': 'سيعيد هذا الإجراء المهمة إلى حالة سابقة. وضّح الخطأ لتسجيل التصحيح.',
   'Explain what was changed by mistake': 'وضّح ما الذي تغيّر عن طريق الخطأ',
