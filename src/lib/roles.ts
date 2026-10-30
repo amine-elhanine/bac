@@ -35,7 +35,9 @@ export const hrManagers = ['president', 'hr', 'vice_hr']
 export const hrCaseManagers = ['president', 'vice_president', 'hr', 'vice_hr']
 export const memberManagers = ['president', 'vice_president', 'hr', 'vice_hr']
 export const commsManagers = ['president', 'vice_president', 'communications_officer', 'general_secretary']
-export const communicationInboxManagers = ['president', 'vice_president', 'communications_officer']
+/** Inbox access is open to every board officer: each sees only the private
+ *  conversations addressed to their own role — database RLS is the authority. */
+export const communicationInboxManagers: string[] = [...ELECTED_OFFICER_ROLES]
 export const ideaReviewManagers = ['president', 'vice_president', 'general_secretary']
 export const logisticsManagers = ['president', 'vice_president', 'logistics_officer', 'vice_logistics_officer']
 export const taskOfficers = [

@@ -35,6 +35,8 @@ Migration `202610290034_start_club_term.sql` adds an audited, President-only ter
 
 Migration `202610290035_realtime_workspace.sql` adds the notifications, events, tasks, task assignments, and announcements tables to the `supabase_realtime` publication so the open workspace refreshes the moment data changes. Row-level security still applies to each realtime subscriber. Apply it after migration 034.
 
+Migration `202610290037_member_chat_redesign.sql` retargets conversations to a board role (chat cadence, role-holder notifications, closure notes); the latest one, `202610300000_private_board_channels.sql`, makes those conversations strictly private — only the member and the current holder of the targeted board role can read, reply to, or close them (leadership oversight removed) — and the Communications screen lists every board member's channel so members enter and message directly. Apply it after migration 037.
+
 ## Run locally
 
 Requirements: Node.js 20 or newer and npm.
