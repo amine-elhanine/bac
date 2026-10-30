@@ -3,6 +3,11 @@
  * falls back to English at render time.
  */
 export const fr: Record<string, string> = {
+  'Correct task status': 'Corriger le statut de la tâche',
+  'This moves the task to an earlier status. Explain the mistake so the correction is recorded.': 'Cette action ramène la tâche à un statut antérieur. Expliquez l’erreur afin que la correction soit enregistrée.',
+  'Explain what was changed by mistake': 'Expliquez ce qui a été modifié par erreur',
+  'Explain why this task status needs correcting.': 'Expliquez pourquoi le statut de cette tâche doit être corrigé.',
+  'Save correction': 'Enregistrer la correction',
   'PHONE': 'TÉLÉPHONE',
   'Phone number': 'Numéro de téléphone',
   'A clear, reasoned history of club participation points.': 'Un historique clair et motivé des points de participation au club.',

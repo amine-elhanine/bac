@@ -3,6 +3,11 @@
  * strings; a missing entry falls back to English at render time.
  */
 export const ar: Record<string, string> = {
+  'Correct task status': 'تصحيح حالة المهمة',
+  'This moves the task to an earlier status. Explain the mistake so the correction is recorded.': 'سيعيد هذا الإجراء المهمة إلى حالة سابقة. وضّح الخطأ لتسجيل التصحيح.',
+  'Explain what was changed by mistake': 'وضّح ما الذي تغيّر عن طريق الخطأ',
+  'Explain why this task status needs correcting.': 'وضّح سبب الحاجة إلى تصحيح حالة هذه المهمة.',
+  'Save correction': 'حفظ التصحيح',
   'PHONE': 'الهاتف',
   'Phone number': 'رقم الهاتف',
   'A clear, reasoned history of club participation points.': 'سجل واضح ومعلَّل لنقاط المشاركة في النادي.',

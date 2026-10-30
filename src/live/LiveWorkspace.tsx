@@ -643,15 +643,11 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     setNotificationsOpen(false)
   }
 
-  async function changeTaskStatus(taskId: string, status: string) {
+  async function changeTaskStatus(taskId: string, status: string, reason?: string) {
     if (!supabase) return
-    const { error: updateError } = await supabase.rpc('update_assigned_task_status', { p_task_id: taskId, p_new_status: status })
+    const { error: updateError } = await supabase.rpc('update_assigned_task_status', { p_task_id: taskId, p_new_status: status, p_reason: reason ?? null })
     if (updateError) { setError(t('Could not update this task status. Refresh and check your assignment.')); return }
-    setTasks((current) => current.map((task) => {
-      if (task.id !== taskId) return task
-      if (identity.role !== 'member') return { ...task, status, task_assignments: task.task_assignments.map((assignment) => ({ ...assignment, status })) }
-      return { ...task, task_assignments: task.task_assignments.map((assignment) => assignment.member_id === identity.id ? { ...assignment, status } : assignment) }
-    }))
+    await loadViewData()
     notify(t('Task status updated.'))
   }
 
