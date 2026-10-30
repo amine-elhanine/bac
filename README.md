@@ -37,6 +37,8 @@ Migration `202610290035_realtime_workspace.sql` adds the notifications, events, 
 
 Migration `202610290037_member_chat_redesign.sql` retargets conversations to a board role (chat cadence, role-holder notifications, closure notes); the latest one, `202610300000_private_board_channels.sql`, makes those conversations strictly private — only the member and the current holder of the targeted board role can read, reply to, or close them (leadership oversight removed) — and `202610300100_communication_chat_realtime.sql` adds the two communication tables to the realtime publication. The Communications screen is now a WhatsApp-style two-pane chat: members see every board member in the list, click one, and send messages there; the board answers in the same view ("Member communication inbox"). Apply the migrations after migration 037.
 
+The workspace address mirrors the open page (`/members`, `/communications`, …) with internal navigation via `history`, so a reload or a shared link restores the same view; `public/_redirects` keeps Cloudflare Pages serving the app shell for every path, and restricted modules fall back to Overview.
+
 ## Run locally
 
 Requirements: Node.js 20 or newer and npm.

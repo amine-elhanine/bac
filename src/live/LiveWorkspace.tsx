@@ -49,9 +49,48 @@ const notificationDestinations: Partial<Record<string, LiveView>> = {
   '/attendance': 'Attendance', '/logistics': 'Logistics',
 }
 
+/** The browser address always carries the open page, so a reload (or a shared
+ *  link) restores the same view. These paths match the notification ones to
+ *  keep the numbering consistent. */
+const viewPaths: Record<LiveView, string> = {
+  Overview: '/', Members: '/members', Attendance: '/attendance', Finance: '/finance',
+  Points: '/points', Calendar: '/calendar', Tasks: '/tasks', Communications: '/communications',
+  Logistics: '/logistics', Support: '/support', Account: '/account',
+}
+
+const viewsByPath: Record<string, LiveView> = Object.fromEntries(
+  Object.entries(viewPaths).map(([viewName, path]) => [path, viewName as LiveView])
+)
+
+/** The view encoded in the current URL, or Overview for unknown paths. */
+function viewFromLocation(): LiveView {
+  const path = window.location.pathname.replace(/\/+$/, '') || '/'
+  return viewsByPath[path] ?? 'Overview'
+}
+
+/** The sidebar only shows modules the role can open; enforce that for URLs too. */
+function normalizedView(candidate: LiveView, role: string): LiveView {
+  if (candidate === 'Account') return candidate
+  const module = modules.find((item) => item.view === candidate)
+  if (!module) return 'Overview'
+  return module.roles.includes('all') || module.roles.includes(role) ? candidate : 'Overview'
+}
+
 export default function LiveWorkspace({ identity, onSignOut }: { identity: Identity; onSignOut: () => void }) {
   const { t, language } = useI18n()
-  const [view, setView] = useState<LiveView>('Overview')
+  const [view, setViewState] = useState<LiveView>(() => {
+    const fromUrl = normalizedView(viewFromLocation(), identity.role)
+    window.history.replaceState({}, '', viewPaths[fromUrl])
+    return fromUrl
+  })
+
+  /** Every navigation pushes its path so the address shows the open page. */
+  function setView(nextView: LiveView) {
+    const next = normalizedView(nextView, identity.role)
+    setViewState(next)
+    const path = viewPaths[next]
+    if (window.location.pathname.replace(/\/+$/, '') !== path) window.history.pushState({}, '', path)
+  }
   const [currentTermName, setCurrentTermName] = useState('Current term')
   const [currentTermEndsOn, setCurrentTermEndsOn] = useState<string | null>(null)
   const [events, setEvents] = useState<LiveEvent[]>([])
@@ -464,6 +503,13 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
       .subscribe()
     return () => { void client.removeChannel(channel) }
   }, [identity.id, loadNotifications, silentRefresh])
+
+  // Browser back/forward moves between the workspace pages.
+  useEffect(() => {
+    const onPop = () => setViewState(normalizedView(viewFromLocation(), identity.role))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [identity.role])
 
   useEffect(() => {
     if (!supabase) return
