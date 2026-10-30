@@ -61,9 +61,16 @@ function AuthGateInner() {
       const assignment = (assignments ?? []).find((row) => row.role !== 'member')
       const roleMeta = assignment?.club_roles as unknown as { display_name?: string; permissions?: string[]; is_custom?: boolean } | null
       const isCustomRole = Boolean(roleMeta?.is_custom)
-      const permissions = [...new Set([...(assignment && !isCustomRole ? [assignment.role as string] : []), ...(roleMeta?.permissions ?? [])])]
       const role = assignment && !isCustomRole ? assignment.role as string : 'member'
       const roleName = isCustomRole && roleMeta?.display_name ? roleMeta.display_name : role
+      const isAdminRole = Boolean(assignment && (assignment.role.toLowerCase() === 'admin' || roleName.trim().toLowerCase() === 'admin'))
+      let grantedPermissions = [...(assignment && !isCustomRole ? [assignment.role as string] : []), ...(roleMeta?.permissions ?? [])]
+      if (isAdminRole) {
+        const { data: catalog, error: catalogError } = await client.from('club_permission_catalog').select('permission_key')
+        if (catalogError) throw catalogError
+        grantedPermissions = (catalog ?? []).map((permission) => permission.permission_key)
+      }
+      const permissions = [...new Set(grantedPermissions)]
       if (alive) setIdentity({ id: profile.id, name: profile.full_name, email: profile.email ?? session?.user?.email ?? '', role, roleName, isCustomRole, permissions, status: profile.status, mustChangePassword: profile.must_change_password })
     })().catch((error: unknown) => {
       if (alive) setIdentityError(error instanceof Error ? error.message : t('Could not load your BAC account.'))
