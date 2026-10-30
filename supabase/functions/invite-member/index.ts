@@ -13,15 +13,16 @@ Deno.serve(async (request) => {
     if (!(await hasRole(admin, actor.id, memberManagers))) return respond({ error: 'Not authorized to invite members' }, 403)
 
     const body = await request.json().catch(() => null) as {
-      email?: string; full_name?: string; member_code?: string; study_program?: string; cohort?: string; delivery_method?: 'email' | 'manual'
+      email?: string; full_name?: string; member_code?: string; phone_number?: string; study_program?: string; cohort?: string; delivery_method?: 'email' | 'manual'
     } | null
     const email = body?.email?.trim().toLowerCase() ?? ''
     const fullName = body?.full_name?.trim() ?? ''
     const memberCode = body?.member_code?.trim().toUpperCase() ?? ''
+    const phoneNumber = body?.phone_number?.trim() ?? ''
     const studyProgram = body?.study_program?.trim() ?? ''
     const cohort = body?.cohort?.trim() ?? ''
     const deliveryMethod = body?.delivery_method ?? 'email'
-    if (!emailPattern.test(email) || email.length > 254 || fullName.length < 2 || fullName.length > 120 || memberCode.length < 2 || memberCode.length > 32 || !/^[A-Z0-9_-]+$/.test(memberCode) || studyProgram.length > 150 || cohort.length > 80) {
+    if (!emailPattern.test(email) || email.length > 254 || fullName.length < 2 || fullName.length > 120 || memberCode.length < 2 || memberCode.length > 32 || !/^[A-Z0-9_-]+$/.test(memberCode) || phoneNumber.length > 32 || (phoneNumber && !/^[+0-9() .-]+$/.test(phoneNumber)) || studyProgram.length > 150 || cohort.length > 80) {
       return respond({ error: 'Enter a valid email, full name, and member code.' }, 400)
     }
     if (!['email','manual'].includes(deliveryMethod)) return respond({ error: 'Choose email or manual in-person activation.' }, 400)
@@ -59,6 +60,7 @@ Deno.serve(async (request) => {
       member_code: memberCode,
       full_name: fullName,
       email,
+      phone_number: phoneNumber || null,
       study_program: studyProgram || null,
       cohort: cohort || null,
       status: 'active',

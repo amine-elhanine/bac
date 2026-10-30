@@ -3,6 +3,8 @@
  * strings; a missing entry falls back to English at render time.
  */
 export const ar: Record<string, string> = {
+  'PHONE': 'الهاتف',
+  'Phone number': 'رقم الهاتف',
   'A clear, reasoned history of club participation points.': 'سجل واضح ومعلَّل لنقاط المشاركة في النادي.',
   'A confidential channel for members to contact HR.': 'قناة سرية لتواصل الأعضاء مع الموارد البشرية.',
   'A short, clear subject': 'موضوع قصير وواضح',

@@ -127,7 +127,7 @@ export function AttendanceReviewDialog({ event, userId, onClose }: { event: Live
       if (assignmentsError) throw assignmentsError
       const rosterIds = [...new Set((assignments ?? []).map((assignment) => assignment.member_id))]
       const { data: members, error: memberError } = rosterIds.length
-        ? await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').in('id', rosterIds).order('full_name').limit(300)
+        ? await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').in('id', rosterIds).order('full_name').limit(300)
         : { data: [], error: null }
       if (memberError) throw memberError
       const sid = sessionRow?.id ?? null

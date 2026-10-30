@@ -3,6 +3,8 @@
  * falls back to English at render time.
  */
 export const fr: Record<string, string> = {
+  'PHONE': 'TÉLÉPHONE',
+  'Phone number': 'Numéro de téléphone',
   'A clear, reasoned history of club participation points.': 'Un historique clair et motivé des points de participation au club.',
   'A confidential channel for members to contact HR.': 'Un canal confidentiel pour que les membres contactent le RH.',
   'A short, clear subject': 'Un sujet court et clair',

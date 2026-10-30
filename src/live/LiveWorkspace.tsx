@@ -336,7 +336,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         setDashboardMetrics(next)
       }
       if (view === 'Members') {
-        const { data, error: queryError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').order('full_name').limit(250)
+        const { data, error: queryError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').order('full_name').limit(250)
         if (queryError) throw queryError
         setProfiles((data ?? []) as Profile[])
         const now = new Date().toISOString()
@@ -366,7 +366,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         setPurchaseRequests((requestRows ?? []) as PurchaseRequest[])
         setFinancialReconciliations((cashRows ?? []) as FinancialReconciliation[])
         if (canViewFinance) {
-          const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').order('full_name').limit(1000)
+          const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').order('full_name').limit(1000)
           if (memberError) throw memberError
           setProfiles((memberRows ?? []) as Profile[])
         }
@@ -381,7 +381,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         setPointEntries((data ?? []) as PointEntry[])
         setPointBalances((balances ?? []) as PointBalance[])
         if (canHR) {
-          const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').eq('status', 'active').order('full_name').limit(250)
+          const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').eq('status', 'active').order('full_name').limit(250)
           if (memberError) throw memberError
           setProfiles((memberRows ?? []) as Profile[])
         }
@@ -418,12 +418,12 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
           if (canManageCommunicationInbox) for (const thread of mappedThreads) { profileIds.add(thread.member_id); for (const message of thread.messages) profileIds.add(message.sender_id) }
           if (canManageCommunicationInbox) {
             // Managers need the full active roster to start new conversations.
-            const { data: roster, error: rosterError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').eq('status', 'active').order('full_name').limit(500)
+            const { data: roster, error: rosterError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').eq('status', 'active').order('full_name').limit(500)
             if (rosterError) throw rosterError
             for (const member of (roster ?? []) as Profile[]) profileIds.add(member.id)
           }
           if (profileIds.size) {
-            const { data: authors, error: authorError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').in('id', [...profileIds])
+            const { data: authors, error: authorError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').in('id', [...profileIds])
             if (authorError) throw authorError
             setProfiles((authors ?? []) as Profile[])
           } else setProfiles([])
@@ -434,7 +434,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         if (queryError) throw queryError
         setMemberCases((data ?? []) as MemberCase[])
         if (hrCaseManagers.includes(identity.role)) {
-          const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').order('full_name').limit(250)
+          const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').order('full_name').limit(250)
           if (memberError) throw memberError
           setProfiles((memberRows ?? []) as Profile[])
         }
@@ -453,7 +453,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         setPurchaseRequests((requestRows ?? []) as PurchaseRequest[])
         if (canLogistics) {
           const [{ data: memberRows, error: memberError }, { data: eventRows, error: eventsError }] = await Promise.all([
-            supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').eq('status', 'active').order('full_name').limit(250),
+            supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').eq('status', 'active').order('full_name').limit(250),
             supabase.from('events').select('id,title,description,event_type,starts_at,ends_at,location,status,expected_contribution_minor,currency,cancellation_reason,attendance_sessions(id)').order('starts_at', { ascending: false }).limit(100),
           ])
           if (memberError) throw memberError
@@ -467,7 +467,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         if (queryError) throw queryError
         setTasks((data ?? []) as ClubTask[])
         if (taskOfficers.includes(identity.role)) {
-          const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,study_program,cohort,status').eq('status', 'active').order('full_name').limit(250)
+          const { data: memberRows, error: memberError } = await supabase.from('member_profiles').select('id,member_code,full_name,email,phone_number,study_program,cohort,status').eq('status', 'active').order('full_name').limit(250)
           if (memberError) throw memberError
           setProfiles((memberRows ?? []) as Profile[])
         }
