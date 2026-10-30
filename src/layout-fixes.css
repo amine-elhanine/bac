@@ -5,6 +5,19 @@
    overflowing past the screen. */
 .notification-popover{right:0}
 
+/* ─── BAC ↔ 213 wordmark ───────────────────────────────────────────────────
+   BAC is also 2·1·3 (the alphabet positions of B, A and C), so the wordmark
+   alternates between the letters and those numbers. The fixed min-width keeps
+   the gold dot from jumping when the face changes. */
+.brand-wordmark{display:inline-flex;align-items:baseline}
+.brand-wordmark-text{display:inline-block;min-width:1.95em;font-variant-numeric:tabular-nums;animation:brand-wordmark-in .5s ease}
+.brand-wordmark .brand-dot{color:var(--gold)}
+.auth-brand strong .brand-wordmark-text{color:inherit}
+@keyframes brand-wordmark-in{from{opacity:0;transform:translateY(.18em)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion: reduce){
+  .brand-wordmark-text{animation:none}
+}
+
 /* ─── Mobile navigation drawer ─────────────────────────────────────────────
    Below 850px the sidebar becomes an off-canvas drawer opened by the top-bar
    hamburger and closed by the scrim or by navigating. */

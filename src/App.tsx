@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import BrandWordmark from './BrandWordmark'
 import {
   ArrowDownLeft, ArrowUpRight, Bell, CalendarDays,
   Check, ChevronDown, ClipboardCheck, Coins, FileText,
@@ -56,7 +57,7 @@ function App() {
   return (
     <div className="app-shell">
       <aside className={`sidebar ${mobileNav ? 'sidebar-open' : ''}`}>
-        <div className="brand-lockup"><img src="/bac-logo.png" alt="Biologists in Action Club" className="brand-mark brand-logo-image" /><div><strong>BAC<span className="brand-dot">.</span></strong><small>CLUB PLATFORM</small></div><button className="icon-button mobile-close" onClick={() => setMobileNav(false)} aria-label="Close menu"><X size={18} /></button></div>
+        <div className="brand-lockup"><img src="/bac-logo.png" alt="Biologists in Action Club" className="brand-mark brand-logo-image" /><div><BrandWordmark /><small>CLUB PLATFORM</small></div><button className="icon-button mobile-close" onClick={() => setMobileNav(false)} aria-label="Close menu"><X size={18} /></button></div>
         <div className="club-switch"><div className="club-avatar club-logo-image"><img src="/bac-logo.png" alt="" /></div><div className="club-name"><strong>Biologists in Action</strong><small>FST Settat · Demo term</small></div><ChevronDown size={15} /></div>
         <nav className="side-nav" aria-label="Main navigation">
           {['WORKSPACE', 'CLUB MANAGEMENT', 'CLUB LIFE'].map((group) => <div className="nav-group" key={group}>
