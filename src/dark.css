@@ -270,3 +270,20 @@
 :root[data-theme="dark"] .topbar{background:#141a15f2;border-bottom-color:#26302a}
 :root[data-theme="dark"] .footer{color:#79857b}
 :root[data-theme="dark"] .app-shell{background:#10140f;color:#e4e9e3}
+
+/* ─── Roles & Permissions view (light-only classes from the custom-roles feature) ── */
+:root[data-theme="dark"] .role-summary-card{background:#161c17;border-color:#26302a}
+:root[data-theme="dark"] .role-summary-icon{background:#1d2c20;color:#7fc78f}
+:root[data-theme="dark"] .role-summary-title strong{color:#e2e9e0}
+:root[data-theme="dark"] .role-summary-content p{color:#a4aea4}
+:root[data-theme="dark"] .role-summary-content small{color:#79857b}
+:root[data-theme="dark"] .role-permission-group{background:#171d18;border-color:#26302a}
+:root[data-theme="dark"] .role-permission-group h3{color:#8fc79a}
+:root[data-theme="dark"] .role-permission-option{background:#121712;border-color:#333e33}
+:root[data-theme="dark"] .role-permission-option:hover{background:#1d241d;border-color:#465646}
+:root[data-theme="dark"] .role-permission-option input[type=checkbox]{background:#121712;border-color:#4a564a}
+:root[data-theme="dark"] .role-permission-option input[type=checkbox]:checked{background:#1d6b3c;border-color:#1d6b3c}
+:root[data-theme="dark"] .role-permission-option strong{color:#dfe6de}
+:root[data-theme="dark"] .role-permission-option small{color:#8f998f}
+:root[data-theme="dark"] .role-permission-form .modal-actions{background:#161c17;border-top-color:#26302a}
+:root[data-theme="dark"] .role-permission-form>label{color:#b9c2b8}
