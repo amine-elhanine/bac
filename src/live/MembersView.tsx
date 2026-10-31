@@ -39,7 +39,7 @@ export function MembersLive({ profiles, roles, roleCatalog, search, setSearch, c
       onConfirm={() => void confirmDelete()}
       onClose={() => { setMemberToDelete(null); setDeleteError('') }}
     >
-      <label>{t('Reason for deletion')}<textarea required minLength={4} maxLength={500} rows={2} value={deletionReason} onChange={(change) => setDeletionReason(change.target.value)} placeholder={t('For example: duplicate account created by mistake')} /></label>
+      <div className="live-form"><label>{t('Reason for deletion')}<textarea required minLength={4} maxLength={500} rows={2} value={deletionReason} onChange={(change) => setDeletionReason(change.target.value)} placeholder={t('For example: duplicate account created by mistake')} /></label></div>
       {deleteError && <div className="auth-error" role="alert">{deleteError}</div>}
     </ConfirmDialog>}
   </>
