@@ -28,7 +28,7 @@ import { TaskDialog, TasksLive } from './TasksView'
 import { MemberCaseDialog, SupportLive, UpdateMemberCaseDialog } from './SupportView'
 import { AccountLive, ChangePasswordDialog } from './AccountView'
 import { ScannerDialog } from './ScannerDialog'
-import type { Announcement, ClubNotification, ClubPermissionDefinition, ClubRoleDefinition, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, LogisticsSection, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
+import type { Announcement, AttendanceSection, ClubNotification, ClubPermissionDefinition, ClubRoleDefinition, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinanceSection, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, LogisticsSection, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
 
 const modules: { view: LiveView; label: string; icon: typeof CalendarDays; roles: string[] }[] = [
   { view: 'Overview', label: 'Overview', icon: CalendarDays, roles: ['all'] },
@@ -86,6 +86,28 @@ const logisticsSectionsByPath: Record<string, LogisticsSection> = Object.fromEnt
   Object.entries(logisticsSectionPaths).map(([section, path]) => [path, section as LogisticsSection])
 )
 
+/** Finance holds four sub-pages, each with its own address. */
+const financeSectionPaths: Record<FinanceSection, string> = {
+  ledger: '/finance',
+  contributions: '/finance/contributions',
+  purchases: '/finance/purchases',
+  reports: '/finance/reports',
+}
+
+const financeSectionsByPath: Record<string, FinanceSection> = Object.fromEntries(
+  Object.entries(financeSectionPaths).map(([section, path]) => [path, section as FinanceSection])
+)
+
+/** Attendance holds two sub-pages. */
+const attendanceSectionPaths: Record<AttendanceSection, string> = {
+  desk: '/attendance',
+  reports: '/attendance/reports',
+}
+
+const attendanceSectionsByPath: Record<string, AttendanceSection> = Object.fromEntries(
+  Object.entries(attendanceSectionPaths).map(([section, path]) => [path, section as AttendanceSection])
+)
+
 function locationPath(): string {
   return window.location.pathname.replace(/\/+$/, '') || '/'
 }
@@ -95,6 +117,8 @@ function viewFromLocation(): LiveView {
   const path = locationPath()
   if (communicationsSectionsByPath[path]) return 'Communications'
   if (logisticsSectionsByPath[path]) return 'Logistics'
+  if (financeSectionsByPath[path]) return 'Finance'
+  if (attendanceSectionsByPath[path]) return 'Attendance'
   return viewsByPath[path] ?? 'Overview'
 }
 
@@ -106,6 +130,14 @@ function communicationsSectionFromLocation(): CommunicationsSection {
 /** The Logistics tab encoded in the current URL (requests by default). */
 function logisticsSectionFromLocation(): LogisticsSection {
   return logisticsSectionsByPath[locationPath()] ?? 'requests'
+}
+
+function financeSectionFromLocation(): FinanceSection {
+  return financeSectionsByPath[locationPath()] ?? 'ledger'
+}
+
+function attendanceSectionFromLocation(): AttendanceSection {
+  return attendanceSectionsByPath[locationPath()] ?? 'desk'
 }
 
 /** The sidebar only shows modules the role can open; enforce that for URLs too. */
@@ -128,12 +160,14 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   })
   const [communicationsSection, setCommunicationsSection] = useState<CommunicationsSection>(communicationsSectionFromLocation)
   const [logisticsSection, setLogisticsSection] = useState<LogisticsSection>(logisticsSectionFromLocation)
+  const [financeSection, setFinanceSection] = useState<FinanceSection>(financeSectionFromLocation)
+  const [attendanceSection, setAttendanceSection] = useState<AttendanceSection>(attendanceSectionFromLocation)
 
   /** Every navigation pushes its path so the address shows the open page. */
   function setView(nextView: LiveView) {
     const next = normalizedView(nextView, identity.permissions)
     setViewState(next)
-    const path = next === 'Communications' ? communicationsSectionPaths[communicationsSection] : next === 'Logistics' ? logisticsSectionPaths[logisticsSection] : viewPaths[next]
+    const path = next === 'Communications' ? communicationsSectionPaths[communicationsSection] : next === 'Logistics' ? logisticsSectionPaths[logisticsSection] : next === 'Finance' ? financeSectionPaths[financeSection] : next === 'Attendance' ? attendanceSectionPaths[attendanceSection] : viewPaths[next]
     if (locationPath() !== path) window.history.pushState({}, '', path)
   }
 
@@ -150,6 +184,20 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     setLogisticsSection(section)
     setViewState('Logistics')
     const path = logisticsSectionPaths[section]
+    if (locationPath() !== path) window.history.pushState({}, '', path)
+  }
+
+  function openFinanceSection(section: FinanceSection) {
+    setFinanceSection(section)
+    setViewState('Finance')
+    const path = financeSectionPaths[section]
+    if (locationPath() !== path) window.history.pushState({}, '', path)
+  }
+
+  function openAttendanceSection(section: AttendanceSection) {
+    setAttendanceSection(section)
+    setViewState('Attendance')
+    const path = attendanceSectionPaths[section]
     if (locationPath() !== path) window.history.pushState({}, '', path)
   }
   const [currentTermName, setCurrentTermName] = useState('Current term')
@@ -606,6 +654,8 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
       setViewState(normalizedView(viewFromLocation(), identity.permissions))
       setCommunicationsSection(communicationsSectionFromLocation())
       setLogisticsSection(logisticsSectionFromLocation())
+      setFinanceSection(financeSectionFromLocation())
+      setAttendanceSection(attendanceSectionFromLocation())
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -778,8 +828,8 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         {!busy && view === 'Calendar' && <CalendarLive events={events} canCreate={canCreateEvents} canEdit={canEditEvents} canCancel={canCancelEvents} canComplete={canCompleteEvents} onCreate={() => { setEventToEdit(null); setEventModal(true) }} onEdit={(event) => { setEventToEdit(event); setEventModal(true) }} onCancel={setEventToCancel} onComplete={setEventToComplete} />}
         {!busy && view === 'Members' && <MembersLive profiles={filteredProfiles} roles={memberRoles} roleCatalog={roleCatalog} search={search} setSearch={setSearch} canManage={hasPermission('members.profile.edit') || hasPermission('members.status.edit')} canManageRoles={hasPermission('members.roles.manage') || canAssignCustomRoles} canManageTerms={hasPermission('terms.manage')} canAssignBuiltInRoles={hasPermission('members.roles.manage')} canEditProfiles={hasPermission('members.profile.edit')} canChangeStatus={hasPermission('members.status.edit')} canManageAccounts={hasPermission('members.account.manage')} canInvite={hasPermission('members.invite')} onInvite={() => setInviteMemberModal(true)} onStartNewTerm={() => setTermHandoverOpen(true)} onChangeStatus={(member, nextStatus) => setStatusMember({ member, nextStatus })} onEdit={setEditMember} onManageRole={(member, nextRole) => setRoleMember({ member, nextRole })} onResetPassword={setPasswordResetMember} onDeleted={() => loadViewData()} />}
         {!busy && view === 'Roles & Permissions' && <RolesPermissionsLive roles={roleCatalog} permissions={permissionCatalog} canManage={hasPermission('roles.manage')} canView={hasPermission('roles.view')} onChanged={() => loadViewData()} />}
-        {!busy && view === 'Attendance' && <AttendanceLive events={events} role={identity.role} roles={identity.permissions} memberId={identity.id} session={activeSession} token={qrToken} onOpen={startAttendance} onClose={closeAttendance} onScan={() => setScannerOpen(true)} onReview={setAttendanceReviewEvent} />}
-        {!busy && view === 'Finance' && <FinanceLive entries={entries} balanceMinor={financeBalanceMinor} reconciliation={reconciliation} closures={periodClosures} financialReconciliations={financialReconciliations} purchaseRequests={purchaseRequests} events={events} profiles={profiles} canManage={canViewFinance} canRecord={canFinance} canDecidePurchase={canDecidePurchase} canReconcile={hasPermission('finance.reconcile')} canClosePeriod={hasPermission('finance.periods.close')} canAuditReceipts={hasPermission('finance.receipts.audit')} canManageContributions={canManageContributions} canExport={canExportFinance} exporting={exportBusy} onExport={() => void exportFinanceLedger()} onOpenReceipt={setReceiptPreviewPath} onCreate={() => { setPurchaseRequestToPay(null); setMoneyModal(true) }} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onPayPurchase={(request) => { setPurchaseRequestToPay(request); setMoneyModal(true) }} onReverse={setReversalEntry} onGenerate={generatePaymentExpectations} onContributionChanged={async () => { await loadViewData(); notify(t('Finance records refreshed.')) }} onPeriodClosed={async () => { await loadViewData(); notify(t('Financial period closed and recorded in the audit log.')) }} onReconciled={async () => { await loadViewData(); await loadNotifications(); notify(t('Financial reconciliation recorded in the audit log.')) }} />}
+        {!busy && view === 'Attendance' && <AttendanceLive section={attendanceSection} onSectionChange={openAttendanceSection} events={events} role={identity.role} roles={identity.permissions} memberId={identity.id} session={activeSession} token={qrToken} onOpen={startAttendance} onClose={closeAttendance} onScan={() => setScannerOpen(true)} onReview={setAttendanceReviewEvent} />}
+        {!busy && view === 'Finance' && <FinanceLive section={financeSection} onSectionChange={openFinanceSection} entries={entries} balanceMinor={financeBalanceMinor} reconciliation={reconciliation} closures={periodClosures} financialReconciliations={financialReconciliations} purchaseRequests={purchaseRequests} events={events} profiles={profiles} canManage={canViewFinance} canRecord={canFinance} canDecidePurchase={canDecidePurchase} canReconcile={hasPermission('finance.reconcile')} canClosePeriod={hasPermission('finance.periods.close')} canAuditReceipts={hasPermission('finance.receipts.audit')} canManageContributions={canManageContributions} canExport={canExportFinance} exporting={exportBusy} onExport={() => void exportFinanceLedger()} onOpenReceipt={setReceiptPreviewPath} onCreate={() => { setPurchaseRequestToPay(null); setMoneyModal(true) }} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onPayPurchase={(request) => { setPurchaseRequestToPay(request); setMoneyModal(true) }} onReverse={setReversalEntry} onGenerate={generatePaymentExpectations} onContributionChanged={async () => { await loadViewData(); notify(t('Finance records refreshed.')) }} onPeriodClosed={async () => { await loadViewData(); notify(t('Financial period closed and recorded in the audit log.')) }} onReconciled={async () => { await loadViewData(); await loadNotifications(); notify(t('Financial reconciliation recorded in the audit log.')) }} />}
         {!busy && view === 'Points' && <PointsLive entries={pointEntries} balances={pointBalances} profiles={profiles} memberId={identity.id} canViewAll={hasPermission('points.view')} canManage={canHR} onAdd={() => setPointsModal(true)} />}
         {!busy && view === 'Communications' && <CommunicationsLive section={communicationsSection} onSectionChange={openCommunicationsSection} rows={announcements} ideas={ideas} ideaReviews={ideaReviews} threads={communicationThreads} profiles={profiles} canManage={canComms} canReviewIdeas={canReviewIdeas} canManageInbox={canManageCommunicationInbox} canCloseInbox={canCloseCommunicationInbox} onPublish={() => setAnnouncementModal(true)} onSubmitIdea={() => setIdeaModal(true)} onReviewIdea={setIdeaToReview} onNewCommunication={() => setCommunicationFormOpen(true)} onRefresh={async () => { await loadViewData(); await loadNotifications() }} onNotify={notify} />}
         {!busy && view === 'Logistics' && <LogisticsLive section={logisticsSection} onSectionChange={openLogisticsSection} rows={inventory} movements={inventoryMovements} purchaseRequests={purchaseRequests} profiles={profiles} events={events} canManage={canLogistics} canRequestPurchase={hasPermission('logistics.purchases.request')} canDecidePurchase={canDecidePurchase} onRequestPurchase={() => setPurchaseRequestModal(true)} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onAdd={() => setInventoryModal(true)} onMove={setInventoryMovementItem} />}

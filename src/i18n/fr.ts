@@ -994,4 +994,5 @@ export const fr: Record<string, string> = {
   'Logistics Officer': 'Responsable Logistique',
   'Vice Logistics Officer': 'Vice-Responsable Logistique',
 
+
 }

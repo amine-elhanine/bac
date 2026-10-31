@@ -994,4 +994,5 @@ export const ar: Record<string, string> = {
   'Logistics Officer': 'مسؤول اللوجستيك',
   'Vice Logistics Officer': 'نائب مسؤول اللوجستيك',
 
+
 }

@@ -31,6 +31,8 @@ export type CommunicationMessage = { id: string; thread_id: string; sender_id: s
 /** The three sub-pages of the Communications module. */
 export type CommunicationsSection = 'messages' | 'news' | 'ideas'
 export type LogisticsSection = 'requests' | 'inventory' | 'movements'
+export type FinanceSection = 'ledger' | 'contributions' | 'purchases' | 'reports'
+export type AttendanceSection = 'desk' | 'reports'
 export type CommunicationThread = {
   id: string; member_id: string; subject: string; status: 'open' | 'awaiting_member' | 'closed'
   target_role?: string | null; closure_note: string | null; created_at: string; updated_at: string; messages: CommunicationMessage[]
