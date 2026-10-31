@@ -33,14 +33,14 @@ import type { Announcement, AttendanceSection, ClubNotification, ClubPermissionD
 const modules: { view: LiveView; label: string; icon: typeof CalendarDays; roles: string[] }[] = [
   { view: 'Overview', label: 'Overview', icon: CalendarDays, roles: ['all'] },
   { view: 'Members', label: 'Members', icon: Users, roles: ['members.view'] },
-  { view: 'Attendance', label: 'Attendance', icon: ClipboardCheck, roles: ['attendance.roster.view', 'attendance.sessions.manage', 'attendance.records.correct', 'attendance.reports.view'] },
-  { view: 'Finance', label: 'Finance', icon: Wallet, roles: ['finance.view', 'finance.records.manage', 'finance.purchases.review', 'finance.reconcile', 'finance.periods.close', 'finance.reports.export', 'finance.contributions.manage', 'finance.receipts.audit'] },
+  { view: 'Attendance', label: 'Attendance', icon: ClipboardCheck, roles: ['attendance.roster.view', 'attendance.sessions.manage', 'attendance.records.correct', 'attendance.reports.view', 'attendance.self'] },
+  { view: 'Finance', label: 'Finance', icon: Wallet, roles: ['finance.view', 'finance.records.manage', 'finance.purchases.review', 'finance.reconcile', 'finance.periods.close', 'finance.reports.export', 'finance.contributions.manage', 'finance.receipts.audit', 'finance.self'] },
   { view: 'Points', label: 'Points', icon: Coins, roles: ['points.view', 'hr.points.manage'] },
   { view: 'Calendar', label: 'Calendar', icon: CalendarDays, roles: ['events.view', 'events.create', 'events.edit', 'events.cancel', 'events.complete'] },
   { view: 'Tasks', label: 'Tasks', icon: Check, roles: ['tasks.view', 'tasks.manage', 'tasks.delete'] },
-  { view: 'Communications', label: 'Communications', icon: MessageCircle, roles: ['communications.news.manage', 'communications.inbox.manage', 'communications.ideas.review'] },
+  { view: 'Communications', label: 'Communications', icon: MessageCircle, roles: ['communications.news.manage', 'communications.inbox.manage', 'communications.ideas.review', 'communications.chat'] },
   { view: 'Logistics', label: 'Logistics', icon: Package, roles: ['logistics.view', 'logistics.inventory.manage', 'logistics.purchases.request', 'finance.purchases.review'] },
-  { view: 'Support', label: 'HR Support', icon: ShieldCheck, roles: ['hr.cases.view', 'hr.cases.manage'] },
+  { view: 'Support', label: 'HR Support', icon: ShieldCheck, roles: ['hr.cases.view', 'hr.cases.manage', 'hr.cases.submit'] },
   { view: 'Roles & Permissions', label: 'Roles & Permissions', icon: ShieldCheck, roles: ['roles.view', 'roles.manage', 'roles.assign_custom'] },
 ]
 
@@ -530,7 +530,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
           } else setProfiles([])
         }
       }
-      if (view === 'Support' && canViewHR) {
+      if (view === 'Support' && (canViewHR || hasPermission('hr.cases.submit'))) {
         const { data, error: queryError } = await supabase.from('member_cases').select('id,submitted_by,title,description,people_involved,status,response,created_at,updated_at').order('created_at', { ascending: false }).limit(200)
         if (queryError) throw queryError
         setMemberCases((data ?? []) as MemberCase[])

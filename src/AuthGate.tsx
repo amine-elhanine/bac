@@ -58,7 +58,7 @@ function AuthGateInner() {
         .lte('starts_at', new Date().toISOString())
         .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
       if (rolesError) throw rolesError
-      const assignment = (assignments ?? []).find((row) => row.role !== 'member')
+      const assignment = (assignments ?? []).find((row) => row.role !== 'member') ?? (assignments ?? [])[0]
       const roleMeta = assignment?.club_roles as unknown as { display_name?: string; permissions?: string[]; is_custom?: boolean } | null
       const isCustomRole = Boolean(roleMeta?.is_custom)
       const appMetadata = session?.user.app_metadata ?? {}
