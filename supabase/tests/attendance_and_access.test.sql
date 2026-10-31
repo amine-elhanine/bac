@@ -15,6 +15,7 @@ language plpgsql as $$
 declare
   term_id uuid := '11111111-1111-1111-1111-111111111111';
 begin
+  update public.club_terms set is_current = false;
   insert into public.club_terms (id, name, starts_on, ends_on, is_current)
   values (term_id, 'Test term', current_date - 30, current_date + 30, true);
   -- 2222… President/HR, 3333… active member, 4444… suspended member

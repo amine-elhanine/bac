@@ -9,7 +9,7 @@ Deno.serve(async (request) => {
     const user = await authenticatedUser(request)
     if (!user) return respond({ error: 'Sign in required' }, 401)
     const admin = serviceClient()
-    if (!(await hasRole(admin, user.id, attendanceManagers))) return respond({ error: 'Not authorized to manage attendance' }, 403)
+    if (!(await hasRole(admin, user, attendanceManagers))) return respond({ error: 'Not authorized to manage attendance' }, 403)
 
     const body = await request.json().catch(() => null) as { event_id?: string; closes_at?: string } | null
     if (!body?.event_id) return respond({ error: 'event_id is required' }, 400)

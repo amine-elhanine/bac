@@ -9,7 +9,7 @@ Deno.serve(async (request) => {
     const user = await authenticatedUser(request)
     if (!user) return respond({ error: 'Sign in required' }, 401)
     const admin = serviceClient()
-    if (!(await hasRole(admin, user.id, attendanceManagers))) return respond({ error: 'Not authorized to issue attendance codes' }, 403)
+    if (!(await hasRole(admin, user, attendanceManagers))) return respond({ error: 'Not authorized to issue attendance codes' }, 403)
     const body = await request.json().catch(() => null) as { session_id?: string } | null
     if (!body?.session_id) return respond({ error: 'session_id is required' }, 400)
 
