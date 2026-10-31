@@ -30,6 +30,7 @@ export type MemberIdeaReview = { id: string; idea_id: string; previous_status: s
 export type CommunicationMessage = { id: string; thread_id: string; sender_id: string; sender_side: 'member' | 'club_team'; body: string; created_at: string }
 /** The three sub-pages of the Communications module. */
 export type CommunicationsSection = 'messages' | 'news' | 'ideas'
+export type LogisticsSection = 'requests' | 'inventory' | 'movements'
 export type CommunicationThread = {
   id: string; member_id: string; subject: string; status: 'open' | 'awaiting_member' | 'closed'
   target_role?: string | null; closure_note: string | null; created_at: string; updated_at: string; messages: CommunicationMessage[]

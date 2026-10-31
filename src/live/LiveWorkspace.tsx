@@ -28,7 +28,7 @@ import { TaskDialog, TasksLive } from './TasksView'
 import { MemberCaseDialog, SupportLive, UpdateMemberCaseDialog } from './SupportView'
 import { AccountLive, ChangePasswordDialog } from './AccountView'
 import { ScannerDialog } from './ScannerDialog'
-import type { Announcement, ClubNotification, ClubPermissionDefinition, ClubRoleDefinition, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
+import type { Announcement, ClubNotification, ClubPermissionDefinition, ClubRoleDefinition, ClubTask, CommunicationMessage, CommunicationThread, CommunicationsSection, DashboardMetrics, FinancialPeriodClosure, FinancialReconciliation, InventoryItem, InventoryMovement, LiveEvent, LiveView, LogisticsSection, MemberCase, MemberIdea, MemberIdeaReview, MoneyEntry, PaymentReconciliationRow, PointBalance, PointEntry, Profile, PurchaseRequest } from './types'
 
 const modules: { view: LiveView; label: string; icon: typeof CalendarDays; roles: string[] }[] = [
   { view: 'Overview', label: 'Overview', icon: CalendarDays, roles: ['all'] },
@@ -75,6 +75,17 @@ const communicationsSectionsByPath: Record<string, CommunicationsSection> = Obje
   Object.entries(communicationsSectionPaths).map(([section, path]) => [path, section as CommunicationsSection])
 )
 
+/** Logistics holds three sub-pages, each with its own address. */
+const logisticsSectionPaths: Record<LogisticsSection, string> = {
+  requests: '/logistics',
+  inventory: '/logistics/inventory',
+  movements: '/logistics/movements',
+}
+
+const logisticsSectionsByPath: Record<string, LogisticsSection> = Object.fromEntries(
+  Object.entries(logisticsSectionPaths).map(([section, path]) => [path, section as LogisticsSection])
+)
+
 function locationPath(): string {
   return window.location.pathname.replace(/\/+$/, '') || '/'
 }
@@ -83,12 +94,18 @@ function locationPath(): string {
 function viewFromLocation(): LiveView {
   const path = locationPath()
   if (communicationsSectionsByPath[path]) return 'Communications'
+  if (logisticsSectionsByPath[path]) return 'Logistics'
   return viewsByPath[path] ?? 'Overview'
 }
 
 /** The Communications tab encoded in the current URL (messages by default). */
 function communicationsSectionFromLocation(): CommunicationsSection {
   return communicationsSectionsByPath[locationPath()] ?? 'messages'
+}
+
+/** The Logistics tab encoded in the current URL (requests by default). */
+function logisticsSectionFromLocation(): LogisticsSection {
+  return logisticsSectionsByPath[locationPath()] ?? 'requests'
 }
 
 /** The sidebar only shows modules the role can open; enforce that for URLs too. */
@@ -110,12 +127,13 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     return fromUrl
   })
   const [communicationsSection, setCommunicationsSection] = useState<CommunicationsSection>(communicationsSectionFromLocation)
+  const [logisticsSection, setLogisticsSection] = useState<LogisticsSection>(logisticsSectionFromLocation)
 
   /** Every navigation pushes its path so the address shows the open page. */
   function setView(nextView: LiveView) {
     const next = normalizedView(nextView, identity.permissions)
     setViewState(next)
-    const path = next === 'Communications' ? communicationsSectionPaths[communicationsSection] : viewPaths[next]
+    const path = next === 'Communications' ? communicationsSectionPaths[communicationsSection] : next === 'Logistics' ? logisticsSectionPaths[logisticsSection] : viewPaths[next]
     if (locationPath() !== path) window.history.pushState({}, '', path)
   }
 
@@ -124,6 +142,14 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     setCommunicationsSection(section)
     setViewState('Communications')
     const path = communicationsSectionPaths[section]
+    if (locationPath() !== path) window.history.pushState({}, '', path)
+  }
+
+  /** Switch between the three Logistics sub-pages. */
+  function openLogisticsSection(section: LogisticsSection) {
+    setLogisticsSection(section)
+    setViewState('Logistics')
+    const path = logisticsSectionPaths[section]
     if (locationPath() !== path) window.history.pushState({}, '', path)
   }
   const [currentTermName, setCurrentTermName] = useState('Current term')
@@ -579,6 +605,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     const onPop = () => {
       setViewState(normalizedView(viewFromLocation(), identity.permissions))
       setCommunicationsSection(communicationsSectionFromLocation())
+      setLogisticsSection(logisticsSectionFromLocation())
     }
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
@@ -755,7 +782,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         {!busy && view === 'Finance' && <FinanceLive entries={entries} balanceMinor={financeBalanceMinor} reconciliation={reconciliation} closures={periodClosures} financialReconciliations={financialReconciliations} purchaseRequests={purchaseRequests} events={events} profiles={profiles} canManage={canViewFinance} canRecord={canFinance} canDecidePurchase={canDecidePurchase} canReconcile={hasPermission('finance.reconcile')} canClosePeriod={hasPermission('finance.periods.close')} canAuditReceipts={hasPermission('finance.receipts.audit')} canManageContributions={canManageContributions} canExport={canExportFinance} exporting={exportBusy} onExport={() => void exportFinanceLedger()} onOpenReceipt={setReceiptPreviewPath} onCreate={() => { setPurchaseRequestToPay(null); setMoneyModal(true) }} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onPayPurchase={(request) => { setPurchaseRequestToPay(request); setMoneyModal(true) }} onReverse={setReversalEntry} onGenerate={generatePaymentExpectations} onContributionChanged={async () => { await loadViewData(); notify(t('Finance records refreshed.')) }} onPeriodClosed={async () => { await loadViewData(); notify(t('Financial period closed and recorded in the audit log.')) }} onReconciled={async () => { await loadViewData(); await loadNotifications(); notify(t('Financial reconciliation recorded in the audit log.')) }} />}
         {!busy && view === 'Points' && <PointsLive entries={pointEntries} balances={pointBalances} profiles={profiles} memberId={identity.id} canViewAll={hasPermission('points.view')} canManage={canHR} onAdd={() => setPointsModal(true)} />}
         {!busy && view === 'Communications' && <CommunicationsLive section={communicationsSection} onSectionChange={openCommunicationsSection} rows={announcements} ideas={ideas} ideaReviews={ideaReviews} threads={communicationThreads} profiles={profiles} canManage={canComms} canReviewIdeas={canReviewIdeas} canManageInbox={canManageCommunicationInbox} canCloseInbox={canCloseCommunicationInbox} onPublish={() => setAnnouncementModal(true)} onSubmitIdea={() => setIdeaModal(true)} onReviewIdea={setIdeaToReview} onNewCommunication={() => setCommunicationFormOpen(true)} onRefresh={async () => { await loadViewData(); await loadNotifications() }} onNotify={notify} />}
-        {!busy && view === 'Logistics' && <LogisticsLive rows={inventory} movements={inventoryMovements} purchaseRequests={purchaseRequests} profiles={profiles} events={events} canManage={canLogistics} canRequestPurchase={hasPermission('logistics.purchases.request')} canDecidePurchase={canDecidePurchase} onRequestPurchase={() => setPurchaseRequestModal(true)} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onAdd={() => setInventoryModal(true)} onMove={setInventoryMovementItem} />}
+        {!busy && view === 'Logistics' && <LogisticsLive section={logisticsSection} onSectionChange={openLogisticsSection} rows={inventory} movements={inventoryMovements} purchaseRequests={purchaseRequests} profiles={profiles} events={events} canManage={canLogistics} canRequestPurchase={hasPermission('logistics.purchases.request')} canDecidePurchase={canDecidePurchase} onRequestPurchase={() => setPurchaseRequestModal(true)} onDecidePurchase={(request, decision) => setPurchaseRequestToDecide({ request, decision })} onAdd={() => setInventoryModal(true)} onMove={setInventoryMovementItem} />}
         {!busy && view === 'Support' && <SupportLive rows={memberCases} profiles={profiles} canManage={hasPermission('hr.cases.manage')} onSubmit={() => setSupportModal(true)} onReview={setCaseToUpdate} />}
         {!busy && view === 'Account' && <AccountLive identity={identity} onChangePassword={() => setPasswordModal(true)} onInstall={() => setInstallGuideOpen(true)} />}
         {!busy && view === 'Tasks' && <TasksLive rows={tasks} identity={identity} canManage={hasPermission('tasks.manage')} canDelete={hasPermission('tasks.delete')} onCreate={() => setTaskModal(true)} onStatusChange={changeTaskStatus} onDeleted={() => loadViewData()} />}
