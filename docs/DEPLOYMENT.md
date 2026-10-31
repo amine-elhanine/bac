@@ -18,7 +18,7 @@ supabase start          # local stack with migrations applied
 supabase test db        # runs every supabase/tests/*.test.sql
 ```
 
-These suites were authored against the migration files and have not been executed yet; run them once locally and adjust fixture columns (for example the `auth.users` insert) to your CLI version before trusting a green run.
+These suites have been executed locally against the full migration chain — all 16 tests pass (verified 2026-10-31, Supabase CLI 2.122.0). Re-run them after any new migration.
 
 ## 2. Supabase Free project
 
@@ -32,6 +32,14 @@ Migration `202610290032_atomic_attendance_checkin.sql` must be applied before de
 Migration `202610290033_active_member_access_gate.sql` should be applied after all current schema migrations. It adds restrictive membership/workspace policies across club tables and makes officer role checks require an active member who has completed first-login password setup. Shared Edge Function role checks enforce the same profile status. The sign-in flow retains only the self-scoped profile, role, and current-term reads needed to render mandatory password setup. Confirm active officer access, suspended/former denial on the next database request, and temporary-account isolation before entering real data. A signed receipt URL issued before suspension remains a bearer link until its 120-second expiry.
 
 Migration `202610290034_start_club_term.sql` should be applied after 033. From Members, the current President can create the next term and assign its officer roles once the prior term has ended. The operation requires one President, active members, unique role/member assignments, a reason, and explicit confirmation; it changes the active term immediately and is audited.
+
+Later migrations to be aware of when pushing to an existing project:
+
+- `202610300400_custom_club_roles.sql` + `202610300500_detailed_role_permissions.sql` add custom roles and the permission catalog. After applying, re-deploy every Edge Function (they read `club_roles.permissions`).
+- `202610300800_authorization_fixes.sql` restores policies dropped by the 0600 rework, collapses the platform-admin bypass to the single `app_metadata.platform_role = 'platform_admin'` claim, and fixes `set_member_role` (a PL/pgSQL variable named `current_role` collided with the SQL keyword, so officer roles were never ended since migration 001). If production ran the earlier migrations, run this diagnostic first and then resolve any dual-role members before assigning new roles:
+  `select mp.member_code, mp.full_name, ra.role, ra.term_id from role_assignments ra join member_profiles mp on mp.id = ra.member_id join club_terms t on t.id = ra.term_id where t.is_current and ra.role <> 'member' order by ra.member_id, ra.role;`
+- `202610310000_delete_event.sql` adds permanent event deletion (cancelled/completed events without financial records only, reasoned and audited).
+- `202610310100_scope_and_visibility_fixes.sql` scopes task deletion to the creator, the responsible team's officer, or leadership, and restores officer-wide news access for the Communications Officer and Treasury team.
 3. Create and confirm the first President’s Auth account through the dashboard. Then use [`INITIAL_SETUP.sql`](./INITIAL_SETUP.sql) as a placeholder-only template to create the initial club term, President profile, role assignment, and bootstrap audit entries. Replace values only in a private SQL editor copy, never in source control. Run it after all migrations, and first practice with a separate test account/project; invitations need an existing current-term President/VP/HR role.
 4. Keep public self-registration disabled. If free University SMTP is unavailable, HR can activate a verified member in person and hand over a one-time temporary password; the app forces the member to replace it before access. If a member forgets their password, HR, Vice HR, the Vice President, or the President can reset it in person through the Members screen; the reset is reasoned and audited, the new one-time temporary password is shown once, and the member must set a personal password at next sign-in. Do not send temporary credentials in a public group chat.
 5. Add only the project URL and publishable/anon key to local `.env.local` or Cloudflare’s public build variables. Never expose the service-role key. It is not needed by the browser. Configure Supabase Auth redirect allow-lists for the deployed HTTPS address and verify password-recovery delivery through a free University SMTP provider or another board-approved free sender before relying on email recovery.
@@ -40,7 +48,7 @@ Migration `202610290034_start_club_term.sql` should be applied after 033. From M
 
 ### Attendance Edge Functions
 
-The repo includes `open-attendance`, `qr-token`, `check-in`, `invite-member`, `complete-initial-password`, and `reset-member-password`. Deploy only after all migrations are applied and test accounts/roles exist:
+The repo includes `open-attendance`, `qr-token`, `check-in`, `invite-member`, `complete-initial-password`, `reset-member-password`, and `delete-member`. Deploy only after all migrations are applied and test accounts/roles exist:
 
 ```sh
 supabase login
@@ -52,7 +60,10 @@ supabase functions deploy check-in
 supabase functions deploy invite-member
 supabase functions deploy complete-initial-password
 supabase functions deploy reset-member-password
+supabase functions deploy delete-member
 ```
+
+All seven functions verify the caller's JWT and authorize through the shared `_shared/http.ts` helpers, which check the single `app_metadata.platform_role = 'platform_admin'` platform claim first and then the caller's permission keys (`members.account.manage` for `invite-member`, `reset-member-password`, and `delete-member`).
 
 The functions require a valid Supabase user JWT. Supabase's Edge runtime supplies the project URL and server keys; if the dashboard/CLI asks you to configure secrets, set them only as Edge Function secrets. Never put `SUPABASE_SERVICE_ROLE_KEY` into `.env.local`, `VITE_*`, a browser, GitHub source, or a public build. The QR challenge table has RLS enabled and deliberately has no authenticated client policies. The server stores only a hash of each short-lived token; the raw token is returned to the authorized HR screen for rendering.
 
