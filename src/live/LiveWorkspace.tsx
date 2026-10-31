@@ -13,7 +13,7 @@ import {
 import { clubDateTime, clubDateKey, initials, setDateLocale } from './datetime'
 import { localeFor } from '../i18n'
 import { OverviewLive } from './Overview'
-import { CalendarLive } from './CalendarView'
+import { CalendarLive, DeleteEventDialog } from './CalendarView'
 import { CancelEventDialog, CompleteEventDialog, EventDialog } from './EventDialogs'
 import { InviteMemberDialog, MemberPasswordResetDialog, MemberProfileDialog, MemberRoleDialog, MembersLive, MemberStatusDialog, StartTermDialog, TemporaryMemberPasswordDialog } from './MembersView'
 import { RolesPermissionsLive } from './RolesPermissionsView'
@@ -235,6 +235,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   const [eventToEdit, setEventToEdit] = useState<LiveEvent | null>(null)
   const [eventToCancel, setEventToCancel] = useState<LiveEvent | null>(null)
   const [eventToComplete, setEventToComplete] = useState<LiveEvent | null>(null)
+  const [eventToDelete, setEventToDelete] = useState<LiveEvent | null>(null)
   const [moneyModal, setMoneyModal] = useState(false)
   const [purchaseRequestModal, setPurchaseRequestModal] = useState(false)
   const [purchaseRequestToPay, setPurchaseRequestToPay] = useState<PurchaseRequest | null>(null)
@@ -283,6 +284,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
   const canEditEvents = hasPermission('events.edit')
   const canCancelEvents = hasPermission('events.cancel')
   const canCompleteEvents = hasPermission('events.complete')
+  const canDeleteEvents = hasPermission('events.cancel')
   const canViewFinance = hasPermission('finance.view')
   const canExportFinance = hasPermission('finance.reports.export')
   const canManageContributions = hasPermission('finance.contributions.manage')
@@ -825,7 +827,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
         {!networkOnline && <div className="live-offline-notice" role="status">{t('You’re offline. Displayed data may be out of date, and live actions such as attendance check-in need a connection.')}</div>}
         {busy && <div className="live-loading">{t('Loading club data…')}</div>}
         {!busy && view === 'Overview' && <OverviewLive identity={identity} upcoming={upcomingEvents} metrics={dashboardMetrics} onNavigate={setView} onOpenNotifications={() => { setNotificationsOpen(true); void loadNotifications() }} />}
-        {!busy && view === 'Calendar' && <CalendarLive events={events} canCreate={canCreateEvents} canEdit={canEditEvents} canCancel={canCancelEvents} canComplete={canCompleteEvents} onCreate={() => { setEventToEdit(null); setEventModal(true) }} onEdit={(event) => { setEventToEdit(event); setEventModal(true) }} onCancel={setEventToCancel} onComplete={setEventToComplete} />}
+        {!busy && view === 'Calendar' && <CalendarLive events={events} canCreate={canCreateEvents} canEdit={canEditEvents} canCancel={canCancelEvents} canComplete={canCompleteEvents} canDelete={canDeleteEvents} onCreate={() => { setEventToEdit(null); setEventModal(true) }} onEdit={(event) => { setEventToEdit(event); setEventModal(true) }} onCancel={setEventToCancel} onComplete={setEventToComplete} onDelete={setEventToDelete} />}
         {!busy && view === 'Members' && <MembersLive profiles={filteredProfiles} roles={memberRoles} roleCatalog={roleCatalog} search={search} setSearch={setSearch} canManage={hasPermission('members.profile.edit') || hasPermission('members.status.edit')} canManageRoles={hasPermission('members.roles.manage') || canAssignCustomRoles} canManageTerms={hasPermission('terms.manage')} canAssignBuiltInRoles={hasPermission('members.roles.manage')} canEditProfiles={hasPermission('members.profile.edit')} canChangeStatus={hasPermission('members.status.edit')} canManageAccounts={hasPermission('members.account.manage')} canInvite={hasPermission('members.invite')} onInvite={() => setInviteMemberModal(true)} onStartNewTerm={() => setTermHandoverOpen(true)} onChangeStatus={(member, nextStatus) => setStatusMember({ member, nextStatus })} onEdit={setEditMember} onManageRole={(member, nextRole) => setRoleMember({ member, nextRole })} onResetPassword={setPasswordResetMember} onDeleted={() => loadViewData()} />}
         {!busy && view === 'Roles & Permissions' && <RolesPermissionsLive roles={roleCatalog} permissions={permissionCatalog} canManage={hasPermission('roles.manage')} canView={hasPermission('roles.view')} onChanged={() => loadViewData()} />}
         {!busy && view === 'Attendance' && <AttendanceLive section={attendanceSection} onSectionChange={openAttendanceSection} events={events} role={identity.role} roles={identity.permissions} memberId={identity.id} session={activeSession} token={qrToken} onOpen={startAttendance} onClose={closeAttendance} onScan={() => setScannerOpen(true)} onReview={setAttendanceReviewEvent} />}
@@ -840,6 +842,7 @@ export default function LiveWorkspace({ identity, onSignOut }: { identity: Ident
     </main>
     {eventModal && <EventDialog event={eventToEdit} canSetContribution={canManageContributions} onClose={() => { setEventModal(false); setEventToEdit(null) }} onSaved={async () => { const wasEdit = Boolean(eventToEdit); setEventModal(false); setEventToEdit(null); await loadEvents(); setView('Calendar'); notify(wasEdit ? t('Event details updated.') : t('Event published to the club calendar.')) }} />}
     {eventToCancel && <CancelEventDialog event={eventToCancel} onClose={() => setEventToCancel(null)} onSaved={async () => { if (activeSession?.event_id === eventToCancel.id) { setActiveSession(null); setQrToken(null) } setEventToCancel(null); await loadEvents(); notify(t('Event cancelled and members notified.')) }} />}
+    {eventToDelete && <DeleteEventDialog event={eventToDelete} onClose={() => setEventToDelete(null)} onSaved={async () => { setEventToDelete(null); await loadEvents(); notify(t('Event deleted permanently.')) }} />}
     {eventToComplete && <CompleteEventDialog event={eventToComplete} onClose={() => setEventToComplete(null)} onSaved={async () => { if (activeSession?.event_id === eventToComplete.id) { setActiveSession(null); setQrToken(null) } setEventToComplete(null); await loadEvents(); notify(t('Event completed and attendance finalized.')) }} />}
     {moneyModal && canFinance && <MoneyDialog userId={identity.id} events={events} profiles={profiles} reconciliation={reconciliation} purchaseRequest={purchaseRequestToPay} onClose={() => { setMoneyModal(false); setPurchaseRequestToPay(null) }} onSaved={async () => { const linkedRequest = Boolean(purchaseRequestToPay); setMoneyModal(false); setPurchaseRequestToPay(null); setView('Finance'); await loadViewData(); await loadNotifications(); notify(linkedRequest ? t('Purchase recorded and request marked paid.') : t('Transaction recorded.')) }} />}
     {purchaseRequestModal && hasPermission('logistics.purchases.request') && <PurchaseRequestDialog events={events} onClose={() => setPurchaseRequestModal(false)} onSaved={async () => { setPurchaseRequestModal(false); await loadViewData(); await loadNotifications(); notify(t('Purchase request sent to Treasury.')) }} />}

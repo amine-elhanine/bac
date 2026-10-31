@@ -994,5 +994,12 @@ export const fr: Record<string, string> = {
   'Logistics Officer': 'Responsable Logistique',
   'Vice Logistics Officer': 'Vice-Responsable Logistique',
 
+  'Delete event': 'Supprimer l’événement',
+  'Delete event permanently': 'Supprimer définitivement',
+  'Delete this event permanently?': 'Supprimer cet événement définitivement ?',
+  'For example: duplicate event created by mistake': 'Par exemple : événement en double créé par erreur',
+  'Event deleted permanently.': 'Événement supprimé définitivement.',
+  'This removes the event, its attendance records, and its payment expectations. Events with financial records cannot be deleted — keep those cancelled. The deletion is audit logged.': 'Ceci supprime l’événement, ses présences et ses attentes de paiement. Les événements avec des records financiers ne peuvent pas être supprimés — gardez-les annulés. La suppression est journalisée.',
+  'Add a deletion reason of at least four characters.': 'Ajoutez une raison de suppression d’au moins quatre caractères.',
 
 }

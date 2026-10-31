@@ -994,5 +994,12 @@ export const ar: Record<string, string> = {
   'Logistics Officer': 'مسؤول اللوجستيك',
   'Vice Logistics Officer': 'نائب مسؤول اللوجستيك',
 
+  'Delete event': 'حذف الفعالية',
+  'Delete event permanently': 'حذف دائم',
+  'Delete this event permanently?': 'حذف هذه الفعالية دائمًا؟',
+  'For example: duplicate event created by mistake': 'مثال: فعالية مكررة أُنشئت بالخطأ',
+  'Event deleted permanently.': 'حُذفت الفعالية دائمًا.',
+  'This removes the event, its attendance records, and its payment expectations. Events with financial records cannot be deleted — keep those cancelled. The deletion is audit logged.': 'هذا يحذف الفعالية وسجلات الحضور وتلك المساهمات المتوقعة. الفعاليات ذات السجلات المالية لا يمكن حذفها — اتركها ملغاة. يُسجل الحذف في سجل التدقيق.',
+  'Add a deletion reason of at least four characters.': 'أضف سببًا للحذف من أربعة أحرف على الأقل.',
 
 }
